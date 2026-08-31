@@ -1,0 +1,84 @@
+---
+- name: Create private backup destination
+  ansible.builtin.file:
+    path: "{{ backup.local_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Persist deployment inputs for disaster recovery
+  ansible.builtin.file:
+    path: /etc/netbox/deployment
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Persist non-secret deployment configuration
+  ansible.builtin.copy:
+    src: "{{ site_config_file }}"
+    dest: /etc/netbox/deployment/site.yml
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Persist private deployment secrets for disaster recovery
+  ansible.builtin.copy:
+    src: "{{ secrets_file }}"
+    dest: /etc/netbox/deployment/secrets.yml
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+
+- name: Install backup and guarded restore programs
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/company/{{ item.source }}"
+    dest: "/opt/netbox-company/bin/{{ item.destination }}"
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - { source: backup.sh, destination: backup.sh }
+    - { source: restore.sh, destination: restore.sh }
+    - { source: verify_restore.sh, destination: verify_restore.sh }
+
+- name: Install secret-generation fingerprint helper
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/company/secret_fingerprints.py"
+    dest: /opt/netbox-company/bin/secret_fingerprints.py
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install stable administration command links
+  ansible.builtin.file:
+    src: "/opt/netbox-company/bin/{{ item.source }}"
+    dest: "/usr/local/sbin/{{ item.destination }}"
+    state: link
+  loop:
+    - { source: backup.sh, destination: netbox-backup }
+    - { source: restore.sh, destination: netbox-restore }
+    - { source: verify_restore.sh, destination: netbox-restore-verify }
+
+- name: Install backup service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - netbox-backup.service
+    - netbox-backup.timer
+  notify: Reload systemd
+
+- name: Flush backup unit changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable daily NetBox backups
+  ansible.builtin.systemd_service:
+    name: netbox-backup.timer
+    enabled: true
+    state: started

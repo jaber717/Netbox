@@ -1,0 +1,9 @@
+bind = '127.0.0.1:8001'
+workers = {{ [ansible_processor_vcpus | int + 1, 9] | min }}
+threads = 2
+timeout = 120
+keepalive = 5
+accesslog = '-'
+errorlog = '-'
+capture_output = True
+

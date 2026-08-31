@@ -1,0 +1,39 @@
+---
+- name: Enable PostgreSQL 16 and nginx 1.24 module streams
+  ansible.builtin.command: >-
+    dnf -y
+    {{ '--disablerepo=* --enablerepo=netbox-offline-base --enablerepo=netbox-offline-modules' if packages.source == 'bundle' else '' }}
+    module enable postgresql:16 nginx:1.24
+  register: module_enable
+  changed_when: "'Nothing to do.' not in module_enable.stdout"
+
+- name: Install the native RHEL application stack
+  ansible.builtin.dnf:
+    name:
+      - python3.12
+      - python3.12-pip
+      - postgresql-server
+      - postgresql-contrib
+      - redis
+      - nginx
+      - firewalld
+      - policycoreutils-python-utils
+      - python3-libselinux
+      - python3-firewall
+      - rsync
+      - tar
+      - gzip
+      - openssl
+    state: present
+    disablerepo: "{{ '*' if packages.source == 'bundle' else omit }}"
+    enablerepo: "{{ 'netbox-offline-base,netbox-offline-modules' if packages.source == 'bundle' else omit }}"
+
+- name: Verify resolved runtime versions
+  ansible.builtin.command: "{{ item.command }}"
+  loop:
+    - { label: Python, command: python3.12 --version }
+    - { label: PostgreSQL, command: psql --version }
+    - { label: Redis, command: redis-server --version }
+    - { label: nginx, command: nginx -v }
+  register: runtime_versions
+  changed_when: false

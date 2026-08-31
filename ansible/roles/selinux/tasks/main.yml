@@ -1,0 +1,36 @@
+---
+- name: Confirm SELinux remains enforcing
+  ansible.builtin.command: getenforce
+  register: selinux_mode
+  changed_when: false
+  failed_when: selinux_mode.stdout.strip() != 'Enforcing'
+
+- name: Read nginx network-connect boolean
+  ansible.builtin.command: getsebool httpd_can_network_connect
+  register: httpd_network_boolean
+  changed_when: false
+
+- name: Permit nginx to proxy to loopback Gunicorn
+  ansible.builtin.command: setsebool -P httpd_can_network_connect on
+  when: "'--> on' not in httpd_network_boolean.stdout"
+
+- name: Read current persistent SELinux file contexts
+  ansible.builtin.command: semanage fcontext -l
+  register: selinux_fcontexts
+  changed_when: false
+
+- name: Label NetBox static tree for nginx
+  ansible.builtin.command:
+    argv: [semanage, fcontext, -a, -t, httpd_sys_content_t, "/var/www/netbox/static(/.*)?"]
+  when: "'/var/www/netbox/static(/.*)?' not in selinux_fcontexts.stdout"
+
+- name: Label NetBox media tree for nginx read access
+  ansible.builtin.command:
+    argv: [semanage, fcontext, -a, -t, httpd_sys_content_t, "/var/lib/netbox/media(/.*)?"]
+  when: "'/var/lib/netbox/media(/.*)?' not in selinux_fcontexts.stdout"
+
+- name: Restore managed SELinux contexts
+  ansible.builtin.command:
+    argv: [restorecon, -RFv, /var/www/netbox/static, /var/lib/netbox/media, "{{ tls.certificate }}", "{{ tls.private_key }}"]
+  register: restorecon_result
+  changed_when: restorecon_result.stdout | length > 0

@@ -1,0 +1,51 @@
+---
+- name: Install separately identifiable company extension source
+  ansible.builtin.copy:
+    src: extensions/
+    dest: /opt/netbox-company/extensions/
+    owner: root
+    group: netbox
+    mode: preserve
+  notify: Restart NetBox services
+
+- name: Install read-only IPAM Audit Report
+  ansible.builtin.copy:
+    src: scripts/ipam_audit_report.py
+    dest: /var/lib/netbox/scripts/ipam_audit_report.py
+    owner: root
+    group: netbox
+    mode: '0640'
+  when: features.ipam_audit_report | bool
+
+- name: Remove IPAM Audit Report when disabled
+  ansible.builtin.file:
+    path: /var/lib/netbox/scripts/ipam_audit_report.py
+    state: absent
+  when: not (features.ipam_audit_report | bool)
+
+- name: Install write-capable IPAM Allocation Request only when explicitly enabled
+  ansible.builtin.copy:
+    src: scripts/ipam_allocation_request.py
+    dest: /var/lib/netbox/scripts/ipam_allocation_request.py
+    owner: root
+    group: netbox
+    mode: '0640'
+  when: features.ipam_allocation_request | bool
+
+- name: Ensure write-capable IPAM Allocation Request is absent by default
+  ansible.builtin.file:
+    path: /var/lib/netbox/scripts/ipam_allocation_request.py
+    state: absent
+  when: not (features.ipam_allocation_request | bool)
+
+- name: Verify validator modules import even while policy is disabled
+  become_user: netbox
+  ansible.builtin.command:
+    argv:
+      - /opt/netbox/venv/bin/python
+      - /opt/netbox/netbox/manage.py
+      - shell
+      - -c
+      - "import netbox_company.validators.legacy_environment_policy; print('VALIDATOR_IMPORT_OK')"
+  changed_when: false
+

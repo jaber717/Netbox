@@ -1,0 +1,72 @@
+---
+- name: Check whether PostgreSQL is initialized
+  ansible.builtin.stat:
+    path: /var/lib/pgsql/data/PG_VERSION
+  register: pg_version_file
+
+- name: Initialize PostgreSQL database cluster
+  ansible.builtin.command: postgresql-setup --initdb
+  when: not pg_version_file.stat.exists
+
+- name: Bind PostgreSQL to loopback only
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '127.0.0.1'"
+  notify: Restart PostgreSQL
+
+- name: Require SCRAM on local TCP connections
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/pg_hba.conf
+    regexp: '^host\s+all\s+all\s+127\.0\.0\.1/32'
+    line: "host    all             all             127.0.0.1/32          scram-sha-256"
+  notify: Restart PostgreSQL
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd_service:
+    name: postgresql
+    enabled: true
+    state: started
+
+- name: Flush PostgreSQL configuration changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Check for NetBox database role
+  become_user: postgres
+  ansible.builtin.command:
+    argv: [psql, -tAc, "SELECT 1 FROM pg_roles WHERE rolname='{{ postgresql.username }}'"]
+  register: netbox_role
+  changed_when: false
+
+- name: Create NetBox database role
+  become_user: postgres
+  ansible.builtin.shell: |
+    set -euo pipefail
+    psql --set=ON_ERROR_STOP=1 --set=db_password="$NETBOX_DB_PASSWORD" <<'SQL'
+    CREATE ROLE {{ postgresql.username }} LOGIN PASSWORD :'db_password';
+    SQL
+  args:
+    executable: /bin/bash
+  environment:
+    NETBOX_DB_PASSWORD: "{{ postgresql_password }}"
+  when: netbox_role.stdout.strip() != '1'
+  no_log: true
+
+- name: Check for NetBox database
+  become_user: postgres
+  ansible.builtin.command:
+    argv: [psql, -tAc, "SELECT 1 FROM pg_database WHERE datname='{{ postgresql.database }}'"]
+  register: netbox_database
+  changed_when: false
+
+- name: Create NetBox database
+  become_user: postgres
+  ansible.builtin.command:
+    argv: [createdb, --owner, "{{ postgresql.username }}", "{{ postgresql.database }}"]
+  when: netbox_database.stdout.strip() != '1'
+
+- name: Grant public schema ownership required by PostgreSQL 16
+  become_user: postgres
+  ansible.builtin.command:
+    argv: [psql, --dbname, "{{ postgresql.database }}", --command, "ALTER SCHEMA public OWNER TO {{ postgresql.username }}"]
+  changed_when: false

@@ -1,0 +1,110 @@
+device_types:
+  - manufacturer: cisco
+    model: Cisco N9K-C9336C-FX2
+    slug: cisco-n9k-c9336c-fx2
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name_format: "Ethernet1/{n}", start: 1, end: 36, type: 100gbase-x-qsfp28 }
+      - { name: mgmt0, type: 1000base-t, mgmt_only: true }
+    console_ports:
+      - { name: console, type: rj-45 }
+
+  - manufacturer: cisco
+    model: Cisco N9K-C93180YC-FX3
+    slug: cisco-n9k-c93180yc-fx3
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name_format: "Ethernet1/{n}", start: 1, end: 48, type: 25gbase-x-sfp28 }
+      - { name_format: "Ethernet1/{n}", start: 49, end: 54, type: 100gbase-x-qsfp28 }
+      - { name: mgmt0, type: 1000base-t, mgmt_only: true }
+    console_ports:
+      - { name: console, type: rj-45 }
+
+  - manufacturer: cisco
+    model: Cisco C9300-48T
+    slug: cisco-c9300-48t
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name_format: "GigabitEthernet1/0/{n}", start: 1, end: 47, type: 1000base-t }
+      - { name: GigabitEthernet1/0/48, type: 1000base-t, mgmt_only: true }
+      - { name_format: "TenGigabitEthernet1/1/{n}", start: 1, end: 4, type: 10gbase-x-sfpp }
+    console_ports:
+      - { name: console, type: rj-45 }
+
+  - manufacturer: fortinet
+    model: Fortinet FortiGate-600F
+    slug: fortinet-fortigate-600f
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name_format: "port{n}", start: 1, end: 16, type: 1000base-t }
+      - { name: ha1, type: 10gbase-x-sfpp }
+      - { name: ha2, type: 10gbase-x-sfpp }
+      - { name: mgmt1, type: 1000base-t, mgmt_only: true }
+    console_ports:
+      - { name: console, type: rj-45 }
+
+  - manufacturer: f5
+    model: F5 BIG-IP i5800
+    slug: f5-big-ip-i5800
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name_format: "1.{n}", start: 1, end: 8, type: 10gbase-x-sfpp }
+      - { name: mgmt, type: 1000base-t, mgmt_only: true }
+    console_ports:
+      - { name: console, type: rj-45 }
+
+  - manufacturer: dell
+    model: Dell PowerEdge R650
+    slug: dell-poweredge-r650
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name: NIC1-Port1, type: 25gbase-x-sfp28 }
+      - { name: NIC1-Port2, type: 25gbase-x-sfp28 }
+      - { name: iDRAC, type: 1000base-t, mgmt_only: true }
+
+  - manufacturer: commscope
+    model: CommScope ODF-096F-LC
+    slug: commscope-odf-096f-lc
+    u_height: 4
+    is_full_depth: true
+    pass_through_ports: { count: 96, type: lc }
+
+  - manufacturer: commscope
+    model: CommScope PPF-024-LC
+    slug: commscope-ppf-024-lc
+    u_height: 1
+    is_full_depth: true
+    pass_through_ports: { count: 24, type: lc }
+
+  - manufacturer: commscope
+    model: CommScope PPC-048-C6A
+    slug: commscope-ppc-048-c6a
+    u_height: 1
+    is_full_depth: true
+    pass_through_ports: { count: 48, type: 8p8c }
+
+  - manufacturer: opengear
+    model: Opengear CM8148
+    slug: opengear-cm8148
+    u_height: 1
+    is_full_depth: true
+    interfaces:
+      - { name: net1, type: 1000base-t, mgmt_only: true }
+      - { name: net2, type: 1000base-t }
+    console_server_ports:
+      - { name_format: "port{n:02d}", start: 1, end: 48, type: rj-45 }
+
+  # The reference AP8853 definition has no component templates. This is
+  # preserved exactly; power-outlet templates must not be invented silently.
+  - manufacturer: apc
+    model: APC AP8853
+    slug: apc-ap8853
+    u_height: 0
+    is_full_depth: false
+

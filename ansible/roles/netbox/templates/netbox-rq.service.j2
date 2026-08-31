@@ -1,0 +1,20 @@
+[Unit]
+Description=NetBox Request Queue Worker
+Documentation=https://netboxlabs.com/docs/netbox/
+After=network-online.target postgresql.service redis.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netbox
+Group=netbox
+WorkingDirectory=/opt/netbox/netbox
+ExecStart=/opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+

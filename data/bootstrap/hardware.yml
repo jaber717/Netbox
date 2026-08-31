@@ -1,0 +1,27 @@
+manufacturers:
+  - { name: APC, slug: apc }
+  - { name: Cisco, slug: cisco }
+  - { name: CommScope, slug: commscope }
+  - { name: Dell, slug: dell }
+  - { name: F5, slug: f5 }
+  - { name: Fortinet, slug: fortinet }
+  - { name: Opengear, slug: opengear }
+  - { name: Palo Alto, slug: palo-alto }
+
+device_roles:
+  - { name: Spine, slug: spine, color: 'e91e63' }
+  - { name: Leaf, slug: leaf, color: '9c27b0' }
+  - { name: Firewall, slug: firewall, color: 'f44336' }
+  - { name: Load Balancer, slug: load-balancer, color: 'ff9800' }
+  - { name: Management Switch, slug: management-switch, color: '03a9f4' }
+  - { name: Console Server, slug: console-server, color: '00bcd4' }
+  - { name: Server, slug: server, color: '4caf50' }
+  - { name: Patch Panel, slug: patch-panel, color: '795548' }
+  - { name: ODF, slug: odf, color: 'ffc107' }
+  - { name: PDU, slug: pdu, color: '607d8b' }
+
+platforms:
+  - { name: Cisco NX-OS, slug: cisco_nxos, manufacturer: cisco }
+  - { name: Fortinet FortiOS, slug: fortinet_fortios, manufacturer: fortinet }
+  - { name: F5 TMOS, slug: f5_tmos, manufacturer: f5 }
+  - { name: PAN OS, slug: pan-os, manufacturer: palo-alto }

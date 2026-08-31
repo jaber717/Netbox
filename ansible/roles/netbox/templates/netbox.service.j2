@@ -1,0 +1,22 @@
+[Unit]
+Description=NetBox WSGI Service
+Documentation=https://netboxlabs.com/docs/netbox/
+After=network-online.target postgresql.service redis.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=netbox
+Group=netbox
+RuntimeDirectory=netbox
+RuntimeDirectoryMode=0750
+WorkingDirectory=/opt/netbox/netbox
+ExecStart=/opt/netbox/venv/bin/gunicorn --pid /run/netbox/netbox.pid --pythonpath /opt/netbox/netbox --config /etc/netbox/gunicorn.py netbox.wsgi
+Restart=on-failure
+RestartSec=5s
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,23 @@
+---
+- name: Re-run immutable preflight inside convergence
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ bundle_root }}/tools/preflight.py"
+      - --root
+      - "{{ bundle_root }}"
+  changed_when: false
+
+- name: Inspect secrets file
+  ansible.builtin.stat:
+    path: "{{ secrets_file }}"
+  register: secrets_stat
+
+- name: Require private root-owned secrets file
+  ansible.builtin.assert:
+    that:
+      - secrets_stat.stat.exists
+      - secrets_stat.stat.mode == '0600'
+      - secrets_stat.stat.pw_name == 'root'
+    fail_msg: config/secrets.yml must exist, be owned by root, and have mode 0600
+

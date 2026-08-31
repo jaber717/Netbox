@@ -1,0 +1,63 @@
+deployment:
+  environment: home-lab-dev
+  bundle_version: 1.0.0
+
+server:
+  hostname: netbox-dev
+  fqdn: netbox-dev
+  timezone: Asia/Riyadh
+
+# Assertions only. The installer never changes the NIC, address, routes, DNS, or NTP.
+expected_network:
+  interface: ens18
+  ip_address: 192.168.1.91
+  cidr: 192.168.1.91/24
+  gateway: 192.168.1.1
+  dns:
+    - 192.168.1.1
+  ntp:
+    - 192.168.1.1
+  require_ntp_synchronized: false
+
+packages:
+  source: bundle
+
+netbox:
+  version: 4.6.9
+  admin_username: admin
+  allowed_hosts:
+    - netbox-dev
+    - 192.168.1.91
+  csrf_trusted_origins:
+    - https://netbox-dev
+    - https://192.168.1.91
+
+postgresql:
+  version: "16"
+  database: netbox
+  username: netbox
+
+redis:
+  version: "6.2"
+  bind: 127.0.0.1
+
+nginx:
+  stream: "1.24"
+  redirect_http_to_https: true
+
+tls:
+  mode: self_signed_dev
+  certificate: /etc/pki/tls/certs/netbox.crt
+  private_key: /etc/pki/tls/private/netbox.key
+  ca_chain: ""
+
+backup:
+  local_path: /var/backups/netbox
+  retention_days: 14
+  offbox_target: ""
+
+features:
+  bootstrap_taxonomy: true
+  environment_validators: false
+  ipam_audit_report: true
+  ipam_allocation_request: false

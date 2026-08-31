@@ -1,0 +1,62 @@
+---
+- name: Create persistent offline repository location
+  ansible.builtin.file:
+    path: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: packages.source == 'bundle'
+
+- name: Persist immutable base RPM repository outside the transfer directory
+  ansible.builtin.command:
+    argv:
+      - cp
+      - -a
+      - -T
+      - "{{ bundle_root }}/artifacts/rpm-repo/base"
+      - "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/base"
+    creates: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/base/repodata/repomd.xml"
+  when: packages.source == 'bundle'
+
+- name: Persist immutable modular RPM repository outside the transfer directory
+  ansible.builtin.command:
+    argv:
+      - cp
+      - -a
+      - -T
+      - "{{ bundle_root }}/artifacts/rpm-repo/modules"
+      - "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules"
+    creates: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules/repodata/repomd.xml"
+  when: packages.source == 'bundle'
+
+- name: Verify persistent repository metadata
+  ansible.builtin.stat:
+    path: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/{{ item }}/repodata/repomd.xml"
+  loop:
+    - base
+    - modules
+  register: persistent_repository_metadata
+  failed_when: not persistent_repository_metadata.stat.exists
+  when: packages.source == 'bundle'
+
+- name: Configure offline base RPM repository
+  ansible.builtin.yum_repository:
+    name: netbox-offline-base
+    description: NetBox RHEL 9.6 offline base closure
+    baseurl: "file:///opt/netbox-offline-repo/{{ deployment.bundle_version }}/base"
+    enabled: "{{ packages.source == 'bundle' }}"
+    gpgcheck: true
+    repo_gpgcheck: false
+  when: packages.source == 'bundle'
+
+- name: Configure offline modular RPM repository
+  ansible.builtin.yum_repository:
+    name: netbox-offline-modules
+    description: NetBox RHEL 9.6 offline modular content
+    baseurl: "file:///opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules"
+    enabled: "{{ packages.source == 'bundle' }}"
+    gpgcheck: true
+    repo_gpgcheck: false
+    module_hotfixes: false
+  when: packages.source == 'bundle'

@@ -1,0 +1,11 @@
+circuit_types:
+  - { name: DIA, slug: dia }
+  - { name: Dark Fibre (Owned), slug: dark-fibre-owned, description: Company-owned diverse dark fibre }
+  - { name: MPLS, slug: mpls }
+
+providers:
+  - { name: Internal Infrastructure, slug: internal-infrastructure, description: Company-owned plant rather than a purchased service }
+  - { name: STC, slug: STC }
+
+# No circuits, terminations, provider networks, or cables are seeded.
+

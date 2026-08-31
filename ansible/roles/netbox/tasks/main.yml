@@ -1,0 +1,165 @@
+---
+- name: Create NetBox service account
+  ansible.builtin.user:
+    name: netbox
+    system: true
+    home: /var/lib/netbox
+    create_home: false
+    shell: /sbin/nologin
+
+- name: Create persistent and release directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /opt/netbox-4.6.9, owner: root, group: root, mode: '0755' }
+    - { path: /opt/netbox-company, owner: root, group: netbox, mode: '0750' }
+    - { path: /opt/netbox-company/bin, owner: root, group: netbox, mode: '0750' }
+    - { path: /etc/netbox, owner: root, group: netbox, mode: '0750' }
+    - { path: /var/lib/netbox, owner: netbox, group: netbox, mode: '0750' }
+    - { path: /var/lib/netbox/media, owner: netbox, group: netbox, mode: '0750' }
+    - { path: /var/lib/netbox/scripts, owner: netbox, group: netbox, mode: '0750' }
+    - { path: /var/www/netbox/static, owner: netbox, group: nginx, mode: '0755' }
+
+- name: Extract pristine NetBox 4.6.9 source
+  ansible.builtin.unarchive:
+    src: "{{ bundle_root }}/artifacts/upstream/netbox-4.6.9.tar.gz"
+    dest: /opt/netbox-4.6.9
+    remote_src: true
+    extra_opts: [--strip-components=1]
+    creates: /opt/netbox-4.6.9/netbox/manage.py
+
+- name: Point stable path at NetBox 4.6.9
+  ansible.builtin.file:
+    src: /opt/netbox-4.6.9
+    dest: /opt/netbox
+    state: link
+    force: true
+
+- name: Create Python 3.12 virtual environment
+  ansible.builtin.command:
+    argv: [python3.12, -m, venv, /opt/netbox-4.6.9/venv]
+    creates: /opt/netbox-4.6.9/venv/bin/python
+
+- name: Install NetBox dependency closure from local wheelhouse only
+  ansible.builtin.command:
+    argv:
+      - /opt/netbox-4.6.9/venv/bin/pip
+      - install
+      - --no-index
+      - "--find-links={{ bundle_root }}/artifacts/wheelhouse"
+      - --requirement
+      - /opt/netbox-4.6.9/requirements.txt
+      - gunicorn
+      - PyYAML
+  register: pip_install
+  changed_when: "'Successfully installed' in pip_install.stdout"
+
+- name: Validate Python dependency closure
+  ansible.builtin.command: /opt/netbox-4.6.9/venv/bin/pip check
+  changed_when: false
+
+- name: Install managed NetBox configuration
+  ansible.builtin.template:
+    src: configuration.py.j2
+    dest: /etc/netbox/configuration.py
+    owner: root
+    group: netbox
+    mode: '0640'
+  notify: Restart NetBox services
+  no_log: true
+
+- name: Link managed configuration into upstream tree
+  ansible.builtin.file:
+    src: /etc/netbox/configuration.py
+    dest: /opt/netbox-4.6.9/netbox/netbox/configuration.py
+    state: link
+    force: true
+  notify: Restart NetBox services
+
+- name: Link NetBox's fixed static root to persistent web storage
+  ansible.builtin.file:
+    src: /var/www/netbox/static
+    dest: /opt/netbox-4.6.9/netbox/static
+    state: link
+    force: true
+
+- name: Install Gunicorn configuration
+  ansible.builtin.template:
+    src: gunicorn.py.j2
+    dest: /etc/netbox/gunicorn.py
+    owner: root
+    group: netbox
+    mode: '0640'
+  notify: Restart NetBox services
+
+- name: Apply NetBox database migrations
+  become_user: netbox
+  ansible.builtin.command:
+    argv: [/opt/netbox/venv/bin/python, /opt/netbox/netbox/manage.py, migrate, --no-input]
+  register: migrations
+  changed_when: "'Applying' in migrations.stdout"
+
+- name: Collect static assets
+  become_user: netbox
+  ansible.builtin.command:
+    argv: [/opt/netbox/venv/bin/python, /opt/netbox/netbox/manage.py, collectstatic, --no-input]
+  register: collectstatic
+  changed_when: "'0 static files copied' not in collectstatic.stdout"
+
+- name: Install initial administrator convergence script
+  ansible.builtin.copy:
+    src: set_admin.py
+    dest: /opt/netbox-company/set_admin.py
+    owner: root
+    group: netbox
+    mode: '0640'
+
+- name: Create or update the initial NetBox administrator
+  become_user: netbox
+  ansible.builtin.shell: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py shell < /opt/netbox-company/set_admin.py
+  args:
+    executable: /bin/bash
+  environment:
+    NETBOX_INITIAL_ADMIN_USERNAME: "{{ netbox.admin_username }}"
+    NETBOX_INITIAL_ADMIN_PASSWORD: "{{ admin_password }}"
+  register: admin_result
+  changed_when: "'ADMIN_CHANGED=1' in admin_result.stdout"
+  no_log: true
+
+- name: Install systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - netbox.service
+    - netbox-rq.service
+  notify:
+    - Reload systemd
+    - Restart NetBox services
+
+- name: Flush systemd changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start NetBox application services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - netbox.service
+    - netbox-rq.service
+
+- name: Mark installation as managed
+  ansible.builtin.copy:
+    content: "NETBOX-RHEL96-OFFLINE {{ deployment.bundle_version }}\n"
+    dest: /etc/netbox/.managed-by-netbox-rhel96-offline
+    owner: root
+    group: root
+    mode: '0644'

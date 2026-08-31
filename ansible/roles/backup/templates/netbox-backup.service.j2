@@ -1,0 +1,16 @@
+[Unit]
+Description=NetBox application and database backup
+After=postgresql.service
+
+[Service]
+Type=oneshot
+Environment=NETBOX_BACKUP_ROOT={{ backup.local_path }}
+Environment=NETBOX_BACKUP_RETENTION_DAYS={{ backup.retention_days }}
+{% if backup.offbox_target %}
+Environment=NETBOX_BACKUP_OFFBOX_TARGET={{ backup.offbox_target }}
+{% endif %}
+ExecStart=/usr/local/sbin/netbox-backup
+User=root
+Group=root
+PrivateTmp=true
+

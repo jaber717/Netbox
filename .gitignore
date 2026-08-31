@@ -1,0 +1,15 @@
+config/secrets.yml
+artifacts/rpm-repo/**
+!artifacts/rpm-repo/.gitkeep
+artifacts/wheelhouse/**
+!artifacts/wheelhouse/.gitkeep
+artifacts/upstream/**
+!artifacts/upstream/.gitkeep
+dist/**
+!dist/.gitkeep
+build-work/
+*.log
+*.bak
+__pycache__/
+*.pyc
+

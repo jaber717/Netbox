@@ -1,0 +1,18 @@
+roles:
+  - { name: Backup, slug: backup, weight: 1000 }
+  - { name: Firewall Transit, slug: firewall-transit, weight: 1000 }
+  - { name: In-Band Management, slug: in-band-management, weight: 1000 }
+  - { name: Inter-Site, slug: inter-site, weight: 1000 }
+  - { name: Load Balancer VIP, slug: load-balancer-vip, weight: 1000 }
+  - { name: Loopback, slug: loopback, weight: 1000 }
+  - { name: Network Transit, slug: network-transit, weight: 1000 }
+  - { name: OOB Management, slug: oob-management, weight: 1000 }
+  - { name: Server, slug: server, weight: 1000 }
+  - { name: Storage, slug: storage, weight: 1000 }
+
+rirs:
+  - name: RFC 1918 (Private)
+    slug: rfc-1918-private
+    is_private: true
+    description: Private address-space taxonomy; no aggregate or prefix is seeded
+

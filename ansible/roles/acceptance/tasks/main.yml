@@ -1,0 +1,66 @@
+---
+- name: Install RHEL deployment acceptance suite
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/acceptance/acceptance.py"
+    dest: /opt/netbox-company/bin/acceptance.py
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install stable acceptance command
+  ansible.builtin.file:
+    src: /opt/netbox-company/bin/acceptance.py
+    dest: /usr/local/sbin/netbox-acceptance
+    state: link
+
+- name: Create persistent release documentation directory
+  ansible.builtin.file:
+    path: /opt/netbox-company/release-docs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install deterministic release-audit programs
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/{{ item.source }}"
+    dest: "/opt/netbox-company/bin/{{ item.destination }}"
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - { source: acceptance/release_audit.py, destination: release_audit.py }
+    - { source: tools/verify_edit_me_first.py, destination: verify_edit_me_first.py }
+    - { source: tools/site_config.py, destination: site_config.py }
+
+- name: Install release documentation used by schema audit
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/EDIT-ME-FIRST.md"
+    dest: /opt/netbox-company/release-docs/EDIT-ME-FIRST.md
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install stable release-audit command
+  ansible.builtin.file:
+    src: /opt/netbox-company/bin/release_audit.py
+    dest: /usr/local/sbin/netbox-release-audit
+    state: link
+
+- name: Run complete RHEL deployment acceptance suite
+  ansible.builtin.command: /usr/local/sbin/netbox-acceptance
+  register: acceptance_result
+  changed_when: false
+
+- name: Display acceptance result
+  ansible.builtin.debug:
+    var: acceptance_result.stdout_lines
+
+- name: Run deterministic final release audit
+  ansible.builtin.command: /usr/local/sbin/netbox-release-audit
+  register: release_audit_result
+  changed_when: false
+
+- name: Display release audit result
+  ansible.builtin.debug:
+    var: release_audit_result.stdout_lines

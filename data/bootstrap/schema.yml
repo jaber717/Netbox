@@ -1,0 +1,16 @@
+choice_sets:
+  - name: Device Criticality
+    extra_choices:
+      - [tier-1, Tier 1]
+      - [tier-2, Tier 2]
+      - [tier-3, Tier 3]
+
+custom_fields:
+  - name: criticality
+    label: Criticality
+    type: select
+    required: false
+    choice_set: Device Criticality
+    object_types: [dcim.device]
+    description: Operational service criticality
+

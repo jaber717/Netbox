@@ -1,0 +1,90 @@
+tenant_groups:
+  - name: Environments
+    slug: environments
+    description: Environment ownership (consumes the native tenancy dimension).
+
+tenants:
+  - name: PROD
+    slug: prod
+    group: environments
+    description: Production environment
+  - name: DEV
+    slug: dev
+    group: environments
+    description: Development environment
+  - name: DR
+    slug: dr
+    group: environments
+    description: Disaster recovery environment
+
+regions:
+  - name: Saudi Arabia
+    slug: saudi-arabia
+  - name: Riyadh
+    slug: riyadh
+    parent: saudi-arabia
+  - name: Dammam
+    slug: dammam
+    parent: saudi-arabia
+
+# Preserved at the user's explicit request. These names/facility codes originated
+# as home-lab examples and MUST be reviewed/renamed before company production use.
+sites:
+  - name: PROD-SITE-A
+    slug: prod-site-a
+    status: active
+    facility: DC-RUH-01
+    region: riyadh
+    tenant: prod
+    time_zone: Asia/Riyadh
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+  - name: PROD-SITE-B
+    slug: prod-site-b
+    status: active
+    facility: DC-RUH-02
+    region: riyadh
+    tenant: prod
+    time_zone: Asia/Riyadh
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+  - name: DR-SITE
+    slug: dr-site
+    status: active
+    facility: DC-DMM-01
+    region: dammam
+    tenant: dr
+    time_zone: Asia/Riyadh
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+
+locations:
+  - name: PROD-CAGE-A
+    slug: prod-cage-a
+    site: prod-site-a
+    tenant: prod
+    status: active
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+  - name: DEV-CAGE
+    slug: dev-cage
+    site: prod-site-a
+    tenant: dev
+    status: active
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+  - name: PROD-CAGE-B
+    slug: prod-cage-b
+    site: prod-site-b
+    tenant: prod
+    status: active
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+  - name: DR-CAGE
+    slug: dr-cage
+    site: dr-site
+    tenant: dr
+    status: active
+    description: Home-lab organizational example; review before company use
+    company_review_required: true
+

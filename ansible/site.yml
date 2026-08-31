@@ -1,0 +1,23 @@
+---
+- name: Install NetBox 4.6.9 natively on RHEL 9.6
+  hosts: netbox
+  gather_facts: true
+  become: true
+  vars_files:
+    - "{{ site_config_file }}"
+    - "{{ secrets_file }}"
+  roles:
+    - preflight
+    - bundle
+    - packages
+    - postgresql
+    - redis
+    - netbox
+    - company_extensions
+    - nginx
+    - selinux
+    - firewalld
+    - bootstrap_taxonomy
+    - backup
+    - acceptance
+

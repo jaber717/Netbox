@@ -1,0 +1,36 @@
+---
+- name: Enable and start firewalld
+  ansible.builtin.systemd_service:
+    name: firewalld
+    enabled: true
+    state: started
+
+- name: Query allowed web service ports
+  ansible.builtin.command: "firewall-cmd --permanent --query-port={{ item }}/tcp"
+  loop: "{{ ([443] + ([80] if nginx.redirect_http_to_https else [])) }}"
+  register: web_port_query
+  changed_when: false
+  failed_when: false
+
+- name: Allow configured web service ports
+  ansible.builtin.command: "firewall-cmd --permanent --add-port={{ item.item }}/tcp"
+  loop: "{{ web_port_query.results }}"
+  when: item.rc != 0
+  notify: Reload firewalld
+
+- name: Query forbidden externally exposed service ports
+  ansible.builtin.command: "firewall-cmd --permanent --query-port={{ item }}/tcp"
+  loop: [5432, 6379, 8001]
+  register: forbidden_port_query
+  changed_when: false
+  failed_when: false
+
+- name: Remove forbidden externally exposed service ports
+  ansible.builtin.command: "firewall-cmd --permanent --remove-port={{ item.item }}/tcp"
+  loop: "{{ forbidden_port_query.results }}"
+  when: item.rc == 0
+  notify: Reload firewalld
+
+- name: Flush firewalld changes
+  ansible.builtin.meta: flush_handlers
+

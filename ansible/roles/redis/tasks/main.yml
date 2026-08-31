@@ -1,0 +1,51 @@
+---
+- name: Create private Redis configuration directory
+  ansible.builtin.file:
+    path: /etc/redis
+    state: directory
+    owner: root
+    group: redis
+    mode: '0750'
+
+- name: Inspect RHEL Redis configuration path
+  ansible.builtin.stat:
+    path: /etc/redis/redis.conf
+  register: redis_conf_path
+
+- name: Remove obsolete Redis configuration symlink from interrupted installs
+  ansible.builtin.file:
+    path: /etc/redis/redis.conf
+    state: absent
+  when: redis_conf_path.stat.islnk | default(false)
+
+- name: Configure loopback-only authenticated Redis
+  ansible.builtin.template:
+    src: redis-netbox.conf.j2
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: '0600'
+  notify: Restart Redis
+  no_log: true
+
+- name: Remove obsolete intermediate Redis configuration
+  ansible.builtin.file:
+    path: /etc/redis/netbox.conf
+    state: absent
+
+- name: Enable and start Redis
+  ansible.builtin.systemd_service:
+    name: redis
+    enabled: true
+    state: started
+
+- name: Flush Redis configuration changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify authenticated Redis
+  ansible.builtin.command:
+    argv: [redis-cli, -h, 127.0.0.1, -a, "{{ redis_password }}", --no-auth-warning, ping]
+  register: redis_ping
+  changed_when: false
+  failed_when: redis_ping.stdout.strip() != 'PONG'
+  no_log: true
