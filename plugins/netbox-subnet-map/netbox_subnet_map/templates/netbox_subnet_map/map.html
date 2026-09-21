@@ -1,0 +1,87 @@
+{% extends 'generic/object.html' %}
+{% load static %}
+
+{% block controls %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'netbox_subnet_map/subnet-map.css' %}?v=0.2.0">
+<section class="sm" id="subnet-map" aria-label="Subnet Map">
+  <header class="sm-header">
+    <div><div class="sm-eyebrow">IPAM / PREFIX INTELLIGENCE</div><h2>Subnet Map</h2><p>Every address, in context.</p></div>
+    <div class="sm-prefix"><strong>{{ subnet_map.prefix.cidr }}</strong><span class="sm-pill">{{ subnet_map.prefix.status }}</span></div>
+  </header>
+  <div class="sm-context">
+    <span>VRF <b>{{ subnet_map.prefix.vrf }}</b></span><span>Prefix Tenant <b>{{ subnet_map.prefix.tenant }}</b></span>
+    <span>VLAN context <b>{{ subnet_map.prefix.vlan }}</b></span><span>Site / Scope <b>{{ subnet_map.prefix.scope }}</b></span>
+  </div>
+  <div class="sm-metrics" aria-label="Address space summary">
+    <div><span>Usable</span><strong data-metric="usable">{{ subnet_map.metrics.usable }}</strong><small>Native prefix semantics</small></div>
+    <div><span>IPAddress Objects</span><strong data-metric="objects">{{ subnet_map.metrics.ip_objects }}</strong><small>Visible NetBox records</small></div>
+    <div><span>In IPRange</span><strong>{{ subnet_map.metrics.in_ranges|default_if_none:'—' }}</strong><small>Visible covered hosts</small></div>
+    <div><span>In Child Prefix</span><strong>{{ subnet_map.metrics.in_children|default_if_none:'—' }}</strong><small>Visible delegated hosts</small></div>
+    <div><span>NetBox Available</span><strong data-metric="netbox-available">{{ subnet_map.metrics.netbox_available|default_if_none:'—' }}</strong><small>Native available host count</small></div>
+    <div class="sm-available-metric"><span>Operationally Unclaimed</span><strong data-metric="operationally-unclaimed">{{ subnet_map.metrics.operationally_unclaimed|default_if_none:'—' }}</strong><small>Outside range / child space</small></div>
+  </div>
+  {% for notice in subnet_map.notices %}<p class="sm-notice">{{ notice }}</p>{% endfor %}
+  <div class="sm-workspace">
+    <div class="sm-panel sm-map-panel">
+      <div class="sm-panel-title"><h3>{% if subnet_map.grid %}Address space{% else %}Prefix hierarchy{% endif %}</h3><span>{% if subnet_map.grid %}Select an address to inspect{% else %}Explore without enumerating host space{% endif %}</span></div>
+      <div class="sm-legend" aria-label="Map legend">
+        <span class="sm-key sm-available">· Available</span><span class="sm-key sm-existing">● Existing IP</span><span class="sm-key sm-reserved">S Reserved</span>
+        <span class="sm-key sm-range">R IPRange</span><span class="sm-key sm-child">C Child Prefix</span><span class="sm-key sm-gateway">G Gateway</span><span class="sm-key sm-multiple">2 Multiple</span>
+      </div>
+      {% if subnet_map.grid %}
+      {% regroup subnet_map.records by grid_block as grid_blocks %}
+      {% for group in grid_blocks %}
+      {% if group.grouper %}<h4 class="sm-block-heading">{{ group.grouper }}</h4>{% endif %}
+      <div class="sm-grid{% if group.grouper %} sm-grid-qualified{% endif %}" role="group" aria-label="{% if group.grouper %}{{ group.grouper }}; {% endif %}Usable host addresses; arrow keys move between cells">
+        {% for record in group.list %}{% if record.in_grid %}
+        <button type="button" class="sm-cell sm-{{ record.visual_state }}" data-host="{{ record.address_host }}" title="{{ record.accessible_label }}" aria-label="{{ record.accessible_label }}" aria-pressed="false" tabindex="{% if forloop.first %}0{% else %}-1{% endif %}"><span>{{ record.short_label }}</span><small aria-hidden="true">{{ record.marker }}</small></button>
+        {% endif %}{% endfor %}
+      </div>
+      {% endfor %}
+      <div class="sm-grid-footer"><span>Host identity · stored masks stay on IP objects</span><span>Arrow keys to move · Enter to inspect</span></div>
+      {% else %}
+      <div class="sm-hierarchy">
+        {% for child in subnet_map.children_by_id.values %}<a class="sm-child-card" href="{{ child.map_url }}"><b>C {{ child.label }}</b><span>{{ child.status }} · {{ child.tenant }}</span><small>Open child Subnet Map →</small></a>{% empty %}<p class="sm-empty">No visible child prefixes.</p>{% endfor %}
+        {% for range in subnet_map.ranges_by_id.values %}<a class="sm-range-card" href="{{ range.url }}"><b>R {{ range.label }}</b><span>{{ range.status }} · {{ range.tenant }}</span><small>{% if range.mark_populated %}Populated range{% else %}IPRange coverage{% endif %}</small></a>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <aside class="sm-panel sm-inspector" aria-label="Address inspector">
+      <div class="sm-panel-title"><h3>Inspector</h3><span>From NetBox</span></div>
+      <div id="sm-inspector-body" aria-live="polite" aria-atomic="true"><div class="sm-inspector-empty"><span aria-hidden="true">⌖</span><h4>Select an address</h4><p>Inspect its objects, relationships and address-space context.</p></div></div>
+    </aside>
+  </div>
+  <section class="sm-panel sm-table-panel" aria-labelledby="sm-table-title">
+    <div class="sm-panel-title"><h3 id="sm-table-title">Allocated &amp; Special Addresses</h3><span>Available space is represented in the grid</span></div>
+    <div class="sm-table-scroll"><table class="sm-table">
+      <thead><tr><th>IP Address</th><th>NetBox Status</th><th>Derived State</th><th>Function</th><th>Device / Object</th><th>Assigned Object</th><th>Interface</th><th>Interface MAC</th><th>DNS Name</th><th>IP Tenant</th><th>Description</th></tr></thead>
+      <tbody>
+      {% for record in subnet_map.records %}{% if record.special %}
+        {% for ip in record.ip_objects %}<tr data-record-host="{{ record.address_host }}">
+          <td><button type="button" class="sm-address-link" data-host="{{ record.address_host }}">{{ ip.address }}</button></td><td>{{ ip.status }}</td><td>{{ record.derived_states|join:', ' }}</td>
+          <td>{{ ip.assignment.function }}{% if ip.assignment.function != '—' and ip.assignment.function != 'Not visible' %}<small class="sm-derived">derived</small>{% endif %}</td>
+          <td>{{ ip.assignment.parent }}</td><td>{{ ip.assignment.type }}</td><td>{{ ip.assignment.interface }}</td><td>{{ ip.assignment.primary_mac }}{% if ip.assignment.other_macs %}<small>+{{ ip.assignment.other_macs|length }} other</small>{% endif %}</td><td>{{ ip.dns_name|default:'—' }}</td><td>{{ ip.tenant }}</td><td>{{ ip.description|default:'—' }}</td>
+        </tr>{% empty %}<tr data-record-host="{{ record.address_host }}"><td><button type="button" class="sm-address-link" data-host="{{ record.address_host }}">{{ record.address_host }}</button></td><td>—</td><td>{{ record.derived_states|join:', ' }}</td><td colspan="8">No visible IPAddress object; inspect range / child context</td></tr>{% endfor %}
+      {% endif %}{% endfor %}
+      </tbody>
+    </table></div>
+    {% if subnet_map.pagination %}<nav class="sm-pagination" aria-label="Allocated host pages">{% if subnet_map.pagination.previous %}<a href="?page={{ subnet_map.pagination.previous }}">← Previous hosts</a>{% endif %}<span>Host page {{ subnet_map.pagination.number }} of {{ subnet_map.pagination.pages }}</span>{% if subnet_map.pagination.next %}<a href="?page={{ subnet_map.pagination.next }}">Next hosts →</a>{% endif %}</nav>{% endif %}
+  </section>
+  <p class="sm-footnote">Available is a derived presentation state, not a NetBox status or a guarantee of write acceptance. Allocation uses a separate permission-gated native Quick Add route and rechecks the current address context before save. NetBox Available follows native host availability. Operationally Unclaimed additionally excludes all IPRange and child-prefix coverage. Coverage metrics can overlap.</p>
+  <noscript><p class="sm-notice">JavaScript is required for the in-page inspector. Inventory and address-space summaries remain visible above.</p></noscript>
+</section>
+<div id="sm-allocation-triggers" hidden aria-hidden="true">
+  {% for record in subnet_map.records %}
+    {% for action in record.contextual_actions %}
+      {% if action.kind == 'allocate' and action.enabled %}
+        <button type="button" data-allocation-trigger="{{ record.address_host }}"
+                hx-get="{{ action.url }}" hx-target="#htmx-modal-content"
+                data-bs-toggle="modal" data-bs-target="#htmx-modal"></button>
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+</div>
+{{ subnet_map|json_script:'sm-data' }}
+{% endblock %}
+{% block javascript %}{{ block.super }}<script src="{% static 'netbox_subnet_map/subnet-map.js' %}?v=0.2.0" defer></script>{% endblock %}
