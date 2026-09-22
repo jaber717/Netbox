@@ -127,7 +127,11 @@ class SubnetMapAllocateView(LoginRequiredMixin, generic.ObjectEditView):
 
         obj = self._instance(prefix, host)
         form = self._secure_form(self.form(data=request.POST, files=request.FILES, instance=obj), request.user)
-        if form.is_valid():
+        form_valid = form.is_valid()
+        if request.POST.get("tenant", "") != str(prefix.tenant_id or ""):
+            form.add_error("tenant", "Tenant must match the parent prefix.")
+            form_valid = False
+        if form_valid:
             obj._changelog_message = form.cleaned_data.pop("changelog_message", "")
             try:
                 alias = router.db_for_write(IPAddress)

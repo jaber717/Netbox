@@ -3,6 +3,7 @@ from netbox.configuration import *  # noqa: F403
 
 DATABASE = dict(DATABASE)  # noqa: F405
 DATABASE["TEST"] = {"NAME": "test_netbox_platform"}
+CUSTOM_VALIDATORS = {}
 PLUGINS = ["netbox_subnet_map"]
 PLUGINS_CONFIG = {
     "netbox_subnet_map": {
