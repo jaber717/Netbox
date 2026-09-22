@@ -2,7 +2,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name {{ server.fqdn }} {{ server.hostname }} {{ expected_network.ip_address }};
+    server_name {{ server.fqdn }} {{ server.hostname }} {{ server.primary_ip }};
     return 301 https://$host$request_uri;
 }
 {% endif %}
@@ -10,7 +10,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name {{ server.fqdn }} {{ server.hostname }} {{ expected_network.ip_address }};
+    server_name {{ server.fqdn }} {{ server.hostname }} {{ server.primary_ip }};
 
     ssl_certificate {{ tls.certificate }};
     ssl_certificate_key {{ tls.private_key }};

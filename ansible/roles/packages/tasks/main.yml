@@ -1,5 +1,10 @@
 ---
-- name: Enable PostgreSQL 16 and nginx 1.24 module streams
+- name: Verify connected repository access without changing subscription ownership
+  ansible.builtin.command: dnf -q repolist --enabled
+  changed_when: false
+  when: packages.source == 'connected'
+
+- name: Enable PostgreSQL 16 and nginx 1.24 module streams from enabled repositories
   ansible.builtin.command: >-
     dnf -y
     {{ '--disablerepo=* --enablerepo=netbox-offline-base --enablerepo=netbox-offline-modules' if packages.source == 'bundle' else '' }}
@@ -12,6 +17,15 @@
     name:
       - python3.12
       - python3.12-pip
+      - python3.12-devel
+      - gcc
+      - libffi-devel
+      - libxml2-devel
+      - libxslt-devel
+      - openldap-devel
+      - openssl-devel
+      - postgresql-devel
+      - pkgconf-pkg-config
       - postgresql-server
       - postgresql-contrib
       - redis
@@ -24,6 +38,7 @@
       - tar
       - gzip
       - openssl
+      - curl
     state: present
     disablerepo: "{{ '*' if packages.source == 'bundle' else omit }}"
     enablerepo: "{{ 'netbox-offline-base,netbox-offline-modules' if packages.source == 'bundle' else omit }}"

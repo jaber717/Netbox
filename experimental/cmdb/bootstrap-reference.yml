@@ -1,0 +1,26 @@
+classification: partial
+choice_sets:
+  - CMDB Data Source
+  - CMDB Lifecycle
+  - CMDB Support Level
+  - Device Criticality
+  - Warehouse Stock Class
+custom_fields:
+  - cost_center
+  - criticality
+  - data_source
+  - eol_date
+  - eos_date
+  - last_seen
+  - lifecycle_state
+  - purchase_date
+  - software_version
+  - support_contract
+  - support_expiry
+  - support_level
+  - warehouse_asset_tag
+  - warehouse_manufacturer
+  - warehouse_stock_class
+  - warranty_expiry
+relationships: []
+dedicated_tests: 0

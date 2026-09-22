@@ -9,8 +9,8 @@ elif [[ $# -gt 0 ]]; then
   echo "Usage: sudo ./build/build-offline-bundle.sh [--resume]" >&2
   exit 2
 fi
-VERSION="1.0.0"
-PRODUCT="NETBOX-RHEL96-OFFLINE-${VERSION}"
+VERSION="1.0.0-rc1"
+PRODUCT="NETBOX-PLATFORM-OFFLINE-${VERSION}"
 WORK_DIR="${ROOT_DIR}/build-work"
 RPM_ROOT="${ROOT_DIR}/artifacts/rpm-repo"
 WHEELHOUSE="${ROOT_DIR}/artifacts/wheelhouse"
@@ -18,24 +18,23 @@ UPSTREAM="${ROOT_DIR}/artifacts/upstream"
 DIST="${ROOT_DIR}/dist"
 
 fail() { echo "BUILD FAIL: $*" >&2; exit 1; }
-[[ ${EUID} -eq 0 ]] || fail "run with sudo on the registered RHEL 9.6 x86_64 build VM"
+[[ ${EUID} -eq 0 ]] || fail "run with sudo on a registered RHEL 9.x x86_64 build host"
 [[ -f /etc/redhat-release ]] || fail "not RHEL"
-grep -q 'Red Hat Enterprise Linux release 9.6' /etc/redhat-release || fail "requires exactly RHEL 9.6"
+grep -Eq 'Red Hat Enterprise Linux release 9\.[0-9]+' /etc/redhat-release || fail "requires RHEL 9.x"
 [[ "$(uname -m)" == "x86_64" ]] || fail "requires x86_64"
-subscription-manager release --show | grep -q '9.6' || fail "subscription-manager release is not pinned to 9.6"
+dnf -q repolist --enabled >/dev/null || fail "enabled RHEL repositories are unavailable"
 [[ -f "${ROOT_DIR}/config/secrets.yml" ]] || fail "create config/secrets.yml first"
 [[ "$(stat -c '%a' "${ROOT_DIR}/config/secrets.yml")" == "600" ]] || fail "config/secrets.yml must have mode 0600"
 
 chmod 0755 \
-  "${ROOT_DIR}/bootstrap.sh" "${ROOT_DIR}/backup.sh" "${ROOT_DIR}/restore.sh" \
+  "${ROOT_DIR}/install.sh" "${ROOT_DIR}/verify.sh" "${ROOT_DIR}/bootstrap.sh" "${ROOT_DIR}/backup.sh" "${ROOT_DIR}/restore.sh" \
   "${ROOT_DIR}/upgrade.sh" "${ROOT_DIR}/build/build-offline-bundle.sh" \
   "${ROOT_DIR}/build/create-sanitized-release.sh" \
   "${ROOT_DIR}/tools/generate_manifest.py" "${ROOT_DIR}/tools/initialize_secrets.py" \
-  "${ROOT_DIR}/tools/preflight.py" "${ROOT_DIR}/tools/secret_audit.py" \
-  "${ROOT_DIR}/tools/verify_edit_me_first.py" "${ROOT_DIR}/company/backup.sh" \
+  "${ROOT_DIR}/tools/preflight.py" "${ROOT_DIR}/tools/secret_audit.py" "${ROOT_DIR}/tools/release_state.py" \
+  "${ROOT_DIR}/tools/prepare_site.py" "${ROOT_DIR}/company/backup.sh" \
   "${ROOT_DIR}/company/restore.sh" "${ROOT_DIR}/company/verify_restore.sh" \
-  "${ROOT_DIR}/company/secret_fingerprints.py" "${ROOT_DIR}/acceptance/acceptance.py" \
-  "${ROOT_DIR}/acceptance/release_audit.py"
+  "${ROOT_DIR}/company/secret_fingerprints.py" "${ROOT_DIR}/acceptance/verify.py"
 
 ONLINE_REPO_EXCLUDES=(
   --disablerepo=netbox-offline-base
@@ -62,6 +61,7 @@ if [[ ! -f "${UPSTREAM}/netbox-4.6.9.tar.gz" ]]; then
     --output "${UPSTREAM}/netbox-4.6.9.tar.gz" \
     https://github.com/netbox-community/netbox/archive/refs/tags/v4.6.9.tar.gz
 fi
+[[ "$(sha256sum "${UPSTREAM}/netbox-4.6.9.tar.gz" | cut -d' ' -f1)" == "b0c4431a0edc7ce7b019e3f339e944400bf8e628cefa92260a4784f218a67f7c" ]] || fail "NetBox source checksum mismatch"
 tar -tzf "${UPSTREAM}/netbox-4.6.9.tar.gz" > "${WORK_DIR}/netbox-archive-files.txt"
 grep -Fxq 'netbox-4.6.9/netbox/manage.py' "${WORK_DIR}/netbox-archive-files.txt" || fail "unexpected NetBox archive layout"
 if [[ ! -f "${WORK_DIR}/netbox-4.6.9/netbox/manage.py" ]]; then
@@ -71,8 +71,6 @@ fi
 if [[ ! -f "${RPM_ROOT}/modules/repodata/repomd.xml" ]]; then
   echo "Building modular repository with preserved modulemd..."
   dnf -y modulesync --newest-only --resolve \
-    --repo rhel-9-for-x86_64-appstream-rpms \
-    --repo rhel-9-for-x86_64-baseos-rpms \
     --destdir "${RPM_ROOT}/modules" \
     postgresql:16 nginx:1.24
 fi
@@ -97,6 +95,8 @@ python3.12 -m venv "${WORK_DIR}/wheel-build-venv"
   --wheel-dir "${WHEELHOUSE}" \
   --requirement "${WORK_DIR}/netbox-4.6.9/requirements.txt" \
   gunicorn PyYAML
+"${WORK_DIR}/wheel-build-venv/bin/python" -m pip wheel \
+  --wheel-dir "${WHEELHOUSE}" "${ROOT_DIR}/plugins/netbox-subnet-map"
 
 echo "Rehearsing wheelhouse with indexes disabled..."
 python3.12 -m venv "${WORK_DIR}/offline-wheel-test"
@@ -149,7 +149,6 @@ sha256sum "${PRIVATE_ARCHIVE}" > "${PRIVATE_ARCHIVE}.sha256"
 chmod 0600 "${PRIVATE_ARCHIVE}" "${PRIVATE_ARCHIVE}.sha256"
 "${ROOT_DIR}/build/create-sanitized-release.sh" \
   --source-root "${STAGE}" --output-dir "${DIST}"
-install -m 0644 "${ROOT_DIR}/README-TRANSFER.txt" "${DIST}/README-TRANSFER.txt"
 chown -R "${SUDO_USER:-root}:${SUDO_USER:-root}" "${DIST}" "${ROOT_DIR}/manifest" "${ROOT_DIR}/artifacts"
 
 echo "BUILD COMPLETE"

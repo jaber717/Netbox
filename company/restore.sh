@@ -45,8 +45,10 @@ runuser -u postgres -- dropdb --if-exists netbox
 runuser -u postgres -- createdb --owner netbox netbox
 runuser -u postgres -- pg_restore --exit-on-error --clean --if-exists --no-owner --role=netbox --dbname=netbox "${STAGING}/database/netbox.dump"
 rsync -aHAX -- "${STAGING}/files/etc/netbox/" /etc/netbox/
+if [[ -d "${STAGING}/files/etc/netbox-platform" ]]; then rsync -aHAX -- "${STAGING}/files/etc/netbox-platform/" /etc/netbox-platform/; fi
+if [[ -d "${STAGING}/files/etc/pki/tls" ]]; then rsync -aHAX -- "${STAGING}/files/etc/pki/tls/" /etc/pki/tls/; fi
 rsync -aHAX -- "${STAGING}/files/var/lib/netbox/media/" /var/lib/netbox/media/
 rsync -aHAX -- "${STAGING}/files/opt/netbox-company/" /opt/netbox-company/
-restorecon -RF /etc/netbox /var/lib/netbox /opt/netbox-company
+restorecon -RF /etc/netbox /etc/netbox-platform /etc/pki/tls/certs/netbox.crt /etc/pki/tls/private/netbox.key /var/lib/netbox /opt/netbox-company
 systemctl start netbox netbox-rq nginx
-/usr/local/sbin/netbox-acceptance
+/usr/local/sbin/netbox-verify

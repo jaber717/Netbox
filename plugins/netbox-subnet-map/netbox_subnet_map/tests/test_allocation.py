@@ -252,7 +252,7 @@ class AllocationConcurrencyTests(TransactionTestCase):
         self.prefix = Prefix.objects.create(prefix="198.18.0.0/24", vrf=self.vrf, tenant=self.tenant)
         self.url = reverse("ipam:prefix_subnet_map_allocate", kwargs={"pk": self.prefix.pk})
 
-    def test_real_concurrent_duplicate_permitted_and_rendered_as_multiple(self):
+    def test_real_concurrent_allocation_is_serialized_and_rechecked(self):
         barrier = threading.Barrier(2)
         original = IPAddressForm.is_valid
         statuses = []
@@ -285,14 +285,13 @@ class AllocationConcurrencyTests(TransactionTestCase):
                 thread.join(timeout=30)
 
         self.assertEqual(errors, [])
-        self.assertEqual(sorted(statuses), [200, 200])
-        self.assertEqual(IPAddress.objects.filter(address="198.18.0.77/24", vrf=self.vrf).count(), 2)
+        self.assertEqual(sorted(statuses), [200, 409])
+        self.assertEqual(IPAddress.objects.filter(address="198.18.0.77/24", vrf=self.vrf).count(), 1)
         record = next(
             item for item in SubnetMapAssembler(self.prefix, self.admin).assemble()["records"]
             if item["address_host"] == "198.18.0.77"
         )
-        self.assertIn("Multiple Objects (2)", record["derived_states"])
-        self.assertEqual(record["marker"], "2")
+        self.assertIn("Existing IP", record["derived_states"])
 
     def test_native_enforce_unique_rejects_preexisting_duplicate(self):
         self.vrf.enforce_unique = True

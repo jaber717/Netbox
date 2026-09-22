@@ -34,7 +34,7 @@ from ipam.models import RIR, Role
 from tenancy.models import Tenant, TenantGroup
 
 
-DATA_ROOT = Path(os.environ.get("NETBOX_BOOTSTRAP_DATA", "/opt/netbox-company/data/bootstrap"))
+DATA_ROOT = Path(os.environ.get("NETBOX_BOOTSTRAP_DATA", "/opt/netbox-company/data/foundation"))
 stats = {"created": 0, "updated": 0, "unchanged": 0}
 changed_objects = []
 

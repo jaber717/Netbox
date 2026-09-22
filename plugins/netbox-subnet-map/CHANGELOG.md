@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Add permission-trimmed search/filtering and native IP edit actions.
+- Add VRF-aware free-space discovery and conflict simulation.
+- Serialize allocation attempts and recheck authoritative state in-transaction.
+- Preserve the v0.2.0 architecture and all original tests.
+
 ## 0.2.0
 
 ### Added

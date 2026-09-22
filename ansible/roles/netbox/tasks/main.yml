@@ -18,19 +18,48 @@
     - { path: /opt/netbox-4.6.9, owner: root, group: root, mode: '0755' }
     - { path: /opt/netbox-company, owner: root, group: netbox, mode: '0750' }
     - { path: /opt/netbox-company/bin, owner: root, group: netbox, mode: '0750' }
+    - { path: /opt/netbox-platform, owner: root, group: root, mode: '0755' }
+    - { path: /opt/netbox-platform/vendor, owner: root, group: root, mode: '0755' }
+    - { path: /var/cache/netbox-platform, owner: root, group: root, mode: '0755' }
+    - { path: /etc/netbox-platform, owner: root, group: root, mode: '0755' }
     - { path: /etc/netbox, owner: root, group: netbox, mode: '0750' }
     - { path: /var/lib/netbox, owner: netbox, group: netbox, mode: '0750' }
     - { path: /var/lib/netbox/media, owner: netbox, group: netbox, mode: '0750' }
     - { path: /var/lib/netbox/scripts, owner: netbox, group: netbox, mode: '0750' }
     - { path: /var/www/netbox/static, owner: netbox, group: nginx, mode: '0755' }
 
+- name: Download pinned NetBox source for connected installation
+  ansible.builtin.get_url:
+    url: "https://github.com/netbox-community/netbox/archive/refs/tags/v{{ netbox.version }}.tar.gz"
+    dest: "/var/cache/netbox-platform/netbox-{{ netbox.version }}.tar.gz"
+    checksum: "sha256:{{ netbox.source_sha256 }}"
+    mode: '0644'
+  when: packages.source == 'connected'
+
+- name: Copy pinned NetBox source from offline bundle
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/artifacts/upstream/netbox-{{ netbox.version }}.tar.gz"
+    dest: "/var/cache/netbox-platform/netbox-{{ netbox.version }}.tar.gz"
+    remote_src: true
+    mode: '0644'
+  when: packages.source == 'bundle'
+
 - name: Extract pristine NetBox 4.6.9 source
   ansible.builtin.unarchive:
-    src: "{{ bundle_root }}/artifacts/upstream/netbox-4.6.9.tar.gz"
+    src: "/var/cache/netbox-platform/netbox-{{ netbox.version }}.tar.gz"
     dest: /opt/netbox-4.6.9
     remote_src: true
     extra_opts: [--strip-components=1]
     creates: /opt/netbox-4.6.9/netbox/manage.py
+
+- name: Persist vendored Subnet Map source with the managed installation
+  ansible.builtin.copy:
+    src: "{{ bundle_root }}/plugins/netbox-subnet-map/"
+    dest: /opt/netbox-platform/vendor/netbox-subnet-map/
+    owner: root
+    group: root
+    mode: preserve
+  notify: Restart NetBox services
 
 - name: Point stable path at NetBox 4.6.9
   ansible.builtin.file:
@@ -57,6 +86,34 @@
       - PyYAML
   register: pip_install
   changed_when: "'Successfully installed' in pip_install.stdout"
+  when: packages.source == 'bundle'
+
+- name: Install vendored Subnet Map from the offline dependency closure
+  ansible.builtin.command:
+    argv:
+      - /opt/netbox-4.6.9/venv/bin/pip
+      - install
+      - --no-index
+      - "--find-links={{ bundle_root }}/artifacts/wheelhouse"
+      - --no-build-isolation
+      - /opt/netbox-platform/vendor/netbox-subnet-map
+  register: offline_plugin_install
+  changed_when: "'Successfully installed' in offline_plugin_install.stdout"
+  when: packages.source == 'bundle'
+
+- name: Install connected NetBox dependency closure and vendored Subnet Map
+  ansible.builtin.command:
+    argv:
+      - /opt/netbox-4.6.9/venv/bin/pip
+      - install
+      - --requirement
+      - /opt/netbox-4.6.9/requirements.txt
+      - gunicorn
+      - PyYAML
+      - /opt/netbox-platform/vendor/netbox-subnet-map
+  register: connected_pip_install
+  changed_when: "'Successfully installed' in connected_pip_install.stdout"
+  when: packages.source == 'connected'
 
 - name: Validate Python dependency closure
   ansible.builtin.command: /opt/netbox-4.6.9/venv/bin/pip check
@@ -156,10 +213,27 @@
     - netbox.service
     - netbox-rq.service
 
-- name: Mark installation as managed
+- name: Install release-state writer
   ansible.builtin.copy:
-    content: "NETBOX-RHEL96-OFFLINE {{ deployment.bundle_version }}\n"
-    dest: /etc/netbox/.managed-by-netbox-rhel96-offline
+    src: "{{ bundle_root }}/tools/release_state.py"
+    dest: /opt/netbox-company/bin/release_state.py
     owner: root
     group: root
-    mode: '0644'
+    mode: '0750'
+
+- name: Persist non-secret release state
+  ansible.builtin.command:
+    argv:
+      - /opt/netbox-company/bin/release_state.py
+      - --output
+      - /etc/netbox-platform/release.json
+      - --platform-version
+      - "{{ platform.version }}"
+      - --netbox-version
+      - "{{ netbox.version }}"
+      - --subnet-map-version
+      - '0.3.0'
+      - --installation-mode
+      - "{{ deployment.installation_mode }}"
+  register: release_state_result
+  changed_when: "'RELEASE_STATE_CHANGED=1' in release_state_result.stdout"

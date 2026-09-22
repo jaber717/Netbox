@@ -1,8 +1,8 @@
 ---
 - name: Install approved human-readable bootstrap data
   ansible.builtin.copy:
-    src: "{{ bundle_root }}/data/bootstrap/"
-    dest: /opt/netbox-company/data/bootstrap/
+    src: "{{ bundle_root }}/data/foundation/"
+    dest: /opt/netbox-company/data/foundation/
     owner: root
     group: netbox
     mode: preserve
@@ -21,8 +21,8 @@
   args:
     executable: /bin/bash
   environment:
-    NETBOX_BOOTSTRAP_DATA: /opt/netbox-company/data/bootstrap
+    NETBOX_BOOTSTRAP_DATA: /opt/netbox-company/data/foundation
   register: taxonomy_result
   changed_when: "not ('created=0' in taxonomy_result.stdout and 'updated=0' in taxonomy_result.stdout)"
-  when: features.bootstrap_taxonomy | bool
+  when: features.generic_foundation | bool
 

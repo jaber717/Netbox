@@ -1,0 +1,54 @@
+name: Platform CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install PyYAML build
+      - run: python -m compileall acceptance company experimental plugins tests tools
+      - run: python -c "import pathlib,yaml; [yaml.safe_load(p.read_text()) for p in pathlib.Path('.').rglob('*.yml')]"
+      - run: find . -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+      - run: python tools/repository_hygiene.py
+      - run: python -m build plugins/netbox-subnet-map
+
+  subnet-map:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: netbox
+          POSTGRES_USER: netbox
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U netbox" --health-interval=10s
+          --health-timeout=5s --health-retries=10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=10s
+          --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: git clone --depth 1 --branch v4.6.9 https://github.com/netbox-community/netbox.git /tmp/netbox
+      - run: pip install -r /tmp/netbox/requirements.txt ./plugins/netbox-subnet-map
+      - run: >-
+          PYTHONPATH="$PWD/tests:$PWD/plugins/netbox-subnet-map:/tmp/netbox/netbox"
+          NETBOX_CONFIGURATION=ci_configuration
+          python /tmp/netbox/netbox/manage.py test netbox_subnet_map.tests --noinput --verbosity 1
+      - run: >-
+          PYTHONPATH="$PWD/tests:$PWD/plugins/netbox-subnet-map:/tmp/netbox/netbox"
+          NETBOX_CONFIGURATION=ci_configuration
+          M16_VALIDATOR_PATH="$PWD/ansible/roles/company_extensions/files/extensions/netbox_company/validators/legacy_environment_policy.py"
+          python /tmp/netbox/netbox/manage.py test test_vrf_policy --noinput --verbosity 1

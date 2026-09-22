@@ -23,12 +23,15 @@ install -d -m 0700 -o root -g root "${BACKUP_ROOT}" "${STAGING}/database" "${STA
 runuser -u postgres -- pg_dump --format=custom netbox > "${STAGING}/database/netbox.dump"
 runuser -u postgres -- pg_dumpall --globals-only > "${STAGING}/database/globals.sql"
 
-# Database backup and private-secret recovery are separate security artifacts.
-# Deliberately exclude /etc/netbox/configuration.py and deployment/secrets.yml.
+# Database credentials and Django secrets remain separate recovery artifacts.
+# The locally managed TLS certificate/key are included in this root-only archive.
 for source in \
   /etc/netbox/gunicorn.py \
-  /etc/netbox/.managed-by-netbox-rhel96-offline \
+  /etc/netbox/.managed-by-netbox-platform \
+  /etc/netbox-platform/release.json \
   /etc/netbox/deployment/site.yml \
+  /etc/pki/tls/certs/netbox.crt \
+  /etc/pki/tls/private/netbox.key \
   /var/lib/netbox/media \
   /opt/netbox-company \
   /etc/nginx/conf.d/netbox.conf \
@@ -44,7 +47,8 @@ created_utc=${TIMESTAMP}
 hostname=$(hostname -f 2>/dev/null || hostname)
 netbox_version=$(/opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py shell -c 'from django.conf import settings; print(settings.VERSION)' 2>/dev/null | tail -n 1)
 database=netbox
-secret_recovery=external_company_secret_management_required
+secret_recovery=external_secret_management_required
+tls_private_key=included_root_only_archive
 EOF
 /opt/netbox-company/bin/secret_fingerprints.py \
   --secrets /etc/netbox/deployment/secrets.yml >> "${STAGING}/RESTORE-METADATA.txt"

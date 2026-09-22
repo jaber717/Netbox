@@ -92,7 +92,7 @@
         ['IP Address — stored mask', ip.address], ['NetBox Status', ip.status], ['Native IP role', ip.role],
         ['IP Tenant', ip.tenant], ['Function — derived', a.function], ['DNS Name', ip.dns_name], ['Description', ip.description],
         ['Assigned Object Type', a.type], ['Device / VM / FHRPGroup', a.parent], ['Assigned Object', a.label],
-        ['Interface', a.interface], ['Primary Interface MAC — from NetBox', a.primary_mac],
+        ['Interface', a.interface], ['Site', a.site], ['Primary Interface MAC — from NetBox', a.primary_mac],
         [`Other Interface MACs (+${a.other_macs.length}) — from NetBox`, a.other_macs.join(', ') || 'Not recorded'],
         ['Created', ip.created], ['Last Updated', ip.last_updated],
       ], [['Open assigned object', a.url], ['Open parent object', a.parent_url]]));

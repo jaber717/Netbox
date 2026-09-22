@@ -1,4 +1,5 @@
 config/secrets.yml
+config/site.yml
 artifacts/rpm-repo/**
 !artifacts/rpm-repo/.gitkeep
 artifacts/wheelhouse/**

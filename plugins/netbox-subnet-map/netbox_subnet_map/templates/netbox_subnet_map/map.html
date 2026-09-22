@@ -3,7 +3,7 @@
 
 {% block controls %}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'netbox_subnet_map/subnet-map.css' %}?v=0.2.0">
+<link rel="stylesheet" href="{% static 'netbox_subnet_map/subnet-map.css' %}?v=0.3.0">
 <section class="sm" id="subnet-map" aria-label="Subnet Map">
   <header class="sm-header">
     <div><div class="sm-eyebrow">IPAM / PREFIX INTELLIGENCE</div><h2>Subnet Map</h2><p>Every address, in context.</p></div>
@@ -12,6 +12,29 @@
   <div class="sm-context">
     <span>VRF <b>{{ subnet_map.prefix.vrf }}</b></span><span>Prefix Tenant <b>{{ subnet_map.prefix.tenant }}</b></span>
     <span>VLAN context <b>{{ subnet_map.prefix.vlan }}</b></span><span>Site / Scope <b>{{ subnet_map.prefix.scope }}</b></span>
+  </div>
+  <form method="get" class="sm-panel sm-search" aria-label="Subnet Map search and filters">
+    <div class="sm-panel-title"><h3>Search &amp; filter</h3><span>Permission-trimmed NetBox data</span></div>
+    <div class="row g-2">
+      {% for name, value in subnet_map.filters.items %}
+      <div class="col-md-3"><label class="form-label" for="sm-filter-{{ name }}">{{ name|cut:'_'|title }}</label><input class="form-control" id="sm-filter-{{ name }}" name="{{ name }}" value="{{ value }}" placeholder="{% if name == 'q' %}Any visible field{% elif name == 'address' %}IP or CIDR{% else %}{{ name|cut:'_'|title }}{% endif %}"></div>
+      {% endfor %}
+    </div>
+    <div class="mt-2"><button class="btn btn-primary" type="submit">Apply filters</button> <a class="btn btn-outline-secondary" href="?">Clear</a>{% if subnet_map.filter_active %}<span class="ms-2">{{ subnet_map.filtered_count }} matching addresses</span>{% endif %}</div>
+  </form>
+  <div class="sm-panel sm-search" aria-label="Free space and conflict tools">
+    <div class="sm-panel-title"><h3>Free-space finder</h3><span>Exact VRF: {{ subnet_map.prefix.vrf }}</span></div>
+    {% if free_space.known %}
+      <p><b>Next available IP:</b> {{ free_space.next_ip|default:'None' }} · <b>Operationally free:</b> {{ free_space.available_count }}</p>
+      <ul>{% for interval in free_space.free_ranges %}<li>{{ interval.start }} – {{ interval.end }} ({{ interval.size }})</li>{% empty %}<li>No free ranges.</li>{% endfor %}</ul>
+    {% else %}<p class="sm-notice">{{ free_space.reason }}</p>{% endif %}
+    <form method="get" class="row g-2">
+      <div class="col-md-4"><label class="form-label" for="sm-child-size">Requested child prefix</label><input class="form-control" id="sm-child-size" name="child_prefix_length" value="{{ free_space.requested_prefix_length|default:'' }}" placeholder="/27"></div>
+      <div class="col-md-4"><label class="form-label" for="sm-simulate">Conflict simulator</label><input class="form-control" id="sm-simulate" name="simulate" value="{% if conflict_simulation %}{{ conflict_simulation.candidate }}{% endif %}" placeholder="IP address or CIDR"></div>
+      <div class="col-md-4 align-self-end"><button class="btn btn-primary" type="submit">Analyze</button></div>
+    </form>
+    {% if free_space.requested_prefix_length %}<p><b>Available /{{ free_space.requested_prefix_length }}:</b> {{ free_space.child_candidate|default:'None' }}</p>{% endif %}
+    {% if conflict_simulation %}<p><b>Conflict result:</b> {% if not conflict_simulation.known %}Unknown (hidden occupancy){% elif conflict_simulation.available %}Available in this VRF context{% else %}{{ conflict_simulation.conflicts|join:', ' }}{% endif %}</p>{% endif %}
   </div>
   <div class="sm-metrics" aria-label="Address space summary">
     <div><span>Usable</span><strong data-metric="usable">{{ subnet_map.metrics.usable }}</strong><small>Native prefix semantics</small></div>
@@ -84,4 +107,4 @@
 </div>
 {{ subnet_map|json_script:'sm-data' }}
 {% endblock %}
-{% block javascript %}{{ block.super }}<script src="{% static 'netbox_subnet_map/subnet-map.js' %}?v=0.2.0" defer></script>{% endblock %}
+{% block javascript %}{{ block.super }}<script src="{% static 'netbox_subnet_map/subnet-map.js' %}?v=0.3.0" defer></script>{% endblock %}

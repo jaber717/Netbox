@@ -39,4 +39,14 @@ SCRIPTS_ROOT = '/var/lib/netbox/scripts'
 LOGIN_REQUIRED = False
 MAINTENANCE_MODE = False
 
+PLUGINS = {{ (['netbox_subnet_map'] if features.subnet_map else []) | to_json }}
+PLUGINS_CONFIG = {
+    'netbox_subnet_map': {
+        'host_grid_limit': 1024,
+        'hosts_per_page': 128,
+        'related_object_limit': 2000,
+        'free_range_limit': 32,
+    },
+}
+
 CUSTOM_VALIDATORS = {{ ({'ipam.prefix': ['netbox_company.validators.legacy_environment_policy.EnvironmentPrefixValidator'], 'ipam.ipaddress': ['netbox_company.validators.legacy_environment_policy.EnvironmentIPAddressValidator']} if features.environment_validators else {}) | to_json }}

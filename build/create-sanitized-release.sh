@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: create-sanitized-release.sh --source-root /path/NETBOX-RHEL96-OFFLINE-1.0.0 --output-dir /secure/path" >&2
+  echo "Usage: create-sanitized-release.sh --source-root /path/NETBOX-PLATFORM-OFFLINE-1.0.0-rc1 --output-dir /secure/path" >&2
   exit 2
 }
 
@@ -20,7 +20,7 @@ done
 SOURCE_ROOT="$(realpath -e -- "${SOURCE_ROOT}")"
 OUTPUT_DIR="$(realpath -e -- "${OUTPUT_DIR}")"
 export PYTHONDONTWRITEBYTECODE=1
-PRODUCT="NETBOX-RHEL96-OFFLINE-1.0.0"
+PRODUCT="NETBOX-PLATFORM-OFFLINE-1.0.0-rc1"
 [[ "$(basename -- "${SOURCE_ROOT}")" == "${PRODUCT}" ]] || { echo "Unexpected source root name." >&2; exit 1; }
 [[ -f "${SOURCE_ROOT}/config/secrets.yml" ]] || { echo "Private checkpoint source lacks config/secrets.yml." >&2; exit 1; }
 [[ -f "${SOURCE_ROOT}/config/secrets.yml.example" ]] || { echo "Safe secrets example is missing." >&2; exit 1; }
@@ -38,24 +38,23 @@ cp -a -- "${SOURCE_ROOT}/." "${STAGE}/"
 SECRETS_TARGET="${STAGE}/config/secrets.yml"
 [[ "${SECRETS_TARGET}" == "${STAGE}"/* ]] || { echo "Unsafe sanitization target." >&2; exit 1; }
 rm -f -- "${SECRETS_TARGET}"
+SITE_TARGET="${STAGE}/config/site.yml"
+[[ "${SITE_TARGET}" == "${STAGE}"/* ]] || { echo "Unsafe sanitization target." >&2; exit 1; }
+rm -f -- "${SITE_TARGET}"
 
 chmod 0755 \
-  "${STAGE}/bootstrap.sh" "${STAGE}/backup.sh" "${STAGE}/restore.sh" \
+  "${STAGE}/install.sh" "${STAGE}/verify.sh" "${STAGE}/bootstrap.sh" "${STAGE}/backup.sh" "${STAGE}/restore.sh" \
   "${STAGE}/upgrade.sh" "${STAGE}/build/create-sanitized-release.sh" \
   "${STAGE}/tools/generate_manifest.py" "${STAGE}/tools/initialize_secrets.py" \
   "${STAGE}/tools/preflight.py" "${STAGE}/tools/secret_audit.py" \
-  "${STAGE}/tools/verify_edit_me_first.py" "${STAGE}/company/backup.sh" \
+  "${STAGE}/tools/prepare_site.py" "${STAGE}/tools/release_state.py" "${STAGE}/company/backup.sh" \
   "${STAGE}/company/restore.sh" "${STAGE}/company/verify_restore.sh" \
-  "${STAGE}/company/secret_fingerprints.py" "${STAGE}/acceptance/acceptance.py" \
-  "${STAGE}/acceptance/release_audit.py"
+  "${STAGE}/company/secret_fingerprints.py" "${STAGE}/acceptance/verify.py"
 
 python3 "${STAGE}/tools/generate_manifest.py" --root "${STAGE}"
 python3 "${STAGE}/tools/secret_audit.py" --root "${STAGE}" --classification distributable \
   --private-values-from "${SOURCE_ROOT}/config/secrets.yml" \
   > "${STAGE}/manifest/SANITIZATION-AUDIT.txt"
-python3 "${STAGE}/tools/verify_edit_me_first.py" \
-  --config "${STAGE}/config/site.yml" --document "${STAGE}/EDIT-ME-FIRST.md" \
-  > "${STAGE}/manifest/EDIT-ME-FIRST-AUDIT.txt"
 python3 "${STAGE}/tools/generate_manifest.py" --root "${STAGE}"
 python3 "${STAGE}/tools/secret_audit.py" --root "${STAGE}" --classification distributable \
   --private-values-from "${SOURCE_ROOT}/config/secrets.yml" >/dev/null

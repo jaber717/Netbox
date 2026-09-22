@@ -1,5 +1,8 @@
 # Compatibility
 
+Version 0.3.0 retains the v0.2.0 NetBox 4.6.9 baseline. No wider NetBox
+compatibility is claimed until the complete integration suite passes there.
+
 ## Tested
 
 NetBox **4.6.9** only. Compatibility must be revalidated before widening the supported range.

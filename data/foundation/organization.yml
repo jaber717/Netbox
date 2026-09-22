@@ -1,0 +1,8 @@
+# Generic foundation intentionally contains no sites, tenants, facilities, or
+# operational inventory. Environment-specific objects belong in a private
+# overlay, not in the product repository.
+tenant_groups: []
+tenants: []
+regions: []
+sites: []
+locations: []

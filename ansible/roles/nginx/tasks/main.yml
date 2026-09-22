@@ -22,13 +22,13 @@
       - -subj
       - "/CN={{ server.fqdn }}"
       - -addext
-      - "subjectAltName=DNS:{{ server.fqdn }},DNS:{{ server.hostname }},IP:{{ expected_network.ip_address }}"
+      - "subjectAltName=DNS:{{ server.fqdn }},DNS:{{ server.hostname }},IP:{{ server.primary_ip }}"
       - -keyout
       - "{{ tls.private_key }}"
       - -out
       - "{{ tls.certificate }}"
   when:
-    - tls.mode == 'self_signed_dev'
+    - tls.mode == 'self_signed'
     - not tls_files.results[0].stat.exists or not tls_files.results[1].stat.exists
 
 - name: Apply private TLS key permissions

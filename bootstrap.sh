@@ -16,7 +16,11 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 cd "${ROOT_DIR}"
-python3 tools/preflight.py --root "${ROOT_DIR}"
+if [[ "${MODE}" == "preflight" ]]; then
+  python3 tools/preflight.py --root "${ROOT_DIR}" --allow-missing-secrets
+else
+  python3 tools/preflight.py --root "${ROOT_DIR}"
+fi
 if [[ "${MODE}" == "preflight" ]]; then
   exit 0
 fi
@@ -36,6 +40,10 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
       --enablerepo=netbox-offline-base --enablerepo=netbox-offline-modules \
       install ansible-core
   else
+    dnf -q repolist --enabled >/dev/null || {
+      echo "FAIL: enabled RHEL repositories are unavailable; registration/subscription must be fixed first." >&2
+      exit 1
+    }
     dnf -y install ansible-core
   fi
 fi

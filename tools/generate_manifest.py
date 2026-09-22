@@ -65,8 +65,8 @@ def main() -> int:
             else "2.14.18 (RHEL package in offline repository)"
         )
         versions = f"""netbox: 4.6.9
-deployment_bundle: 1.0.0
-rhel_build: 9.6
+deployment_bundle: 1.0.0-rc1
+rhel_build: 9.x
 architecture: {platform.machine()}
 python: {python_version.removeprefix('Python ') or '3.12.9'}
 postgresql_stream: '16'
@@ -80,7 +80,7 @@ build_timestamp_utc: '{dt.datetime.now(dt.timezone.utc).replace(microsecond=0).i
 
     contains_private_secrets = (root / "config/secrets.yml").is_file()
     classification = "private_release_checkpoint" if contains_private_secrets else "sanitized_distributable"
-    bundle = f"""format: NETBOX-RHEL96-OFFLINE
+    bundle = f"""format: NETBOX-PLATFORM-OFFLINE
 format_version: 1
 artifact_classification: {classification}
 rpm_count: {len(rpm_files)}

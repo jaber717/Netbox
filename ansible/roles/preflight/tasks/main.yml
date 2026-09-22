@@ -21,3 +21,19 @@
       - secrets_stat.stat.pw_name == 'root'
     fail_msg: config/secrets.yml must exist, be owned by root, and have mode 0600
 
+- name: Create managed configuration directory after conflict-safe preflight
+  ansible.builtin.file:
+    path: /etc/netbox
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Establish recoverable managed-install marker
+  ansible.builtin.copy:
+    content: "NETBOX-PLATFORM {{ platform.version }}\n"
+    dest: /etc/netbox/.managed-by-netbox-platform
+    owner: root
+    group: root
+    mode: '0644'
+

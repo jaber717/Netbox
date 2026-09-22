@@ -1,36 +1,30 @@
+platform:
+  version: 1.0.0-rc1
+
 deployment:
-  environment: home-lab-dev
-  bundle_version: 1.0.0
+  environment: production
+  installation_mode: connected
 
 server:
-  hostname: netbox-dev
-  fqdn: netbox-dev
-  timezone: Asia/Riyadh
-
-# Assertions only. The installer never changes the NIC, address, routes, DNS, or NTP.
-expected_network:
-  interface: ens18
-  ip_address: 192.168.1.91
-  cidr: 192.168.1.91/24
-  gateway: 192.168.1.1
-  dns:
-    - 192.168.1.1
-  ntp:
-    - 192.168.1.1
-  require_ntp_synchronized: false
+  hostname: __HOSTNAME__
+  fqdn: __FQDN__
+  primary_ip: __PRIMARY_IP__
+  timezone: UTC
 
 packages:
-  source: bundle
+  source: connected
 
 netbox:
   version: 4.6.9
+  source_sha256: b0c4431a0edc7ce7b019e3f339e944400bf8e628cefa92260a4784f218a67f7c
   admin_username: admin
   allowed_hosts:
-    - netbox-dev
-    - 192.168.1.91
+    - __FQDN__
+    - __HOSTNAME__
+    - __PRIMARY_IP__
   csrf_trusted_origins:
-    - https://netbox-dev
-    - https://192.168.1.91
+    - https://__FQDN__
+    - https://__PRIMARY_IP__
 
 postgresql:
   version: "16"
@@ -46,7 +40,7 @@ nginx:
   redirect_http_to_https: true
 
 tls:
-  mode: self_signed_dev
+  mode: self_signed
   certificate: /etc/pki/tls/certs/netbox.crt
   private_key: /etc/pki/tls/private/netbox.key
   ca_chain: ""
@@ -57,7 +51,9 @@ backup:
   offbox_target: ""
 
 features:
-  bootstrap_taxonomy: true
+  generic_foundation: false
   environment_validators: false
   ipam_audit_report: true
   ipam_allocation_request: false
+  subnet_map: true
+  cmdb: false

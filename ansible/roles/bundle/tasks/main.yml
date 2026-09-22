@@ -1,7 +1,7 @@
 ---
 - name: Create persistent offline repository location
   ansible.builtin.file:
-    path: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}"
+    path: "/opt/netbox-offline-repo/{{ platform.version }}"
     state: directory
     owner: root
     group: root
@@ -15,8 +15,8 @@
       - -a
       - -T
       - "{{ bundle_root }}/artifacts/rpm-repo/base"
-      - "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/base"
-    creates: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/base/repodata/repomd.xml"
+      - "/opt/netbox-offline-repo/{{ platform.version }}/base"
+    creates: "/opt/netbox-offline-repo/{{ platform.version }}/base/repodata/repomd.xml"
   when: packages.source == 'bundle'
 
 - name: Persist immutable modular RPM repository outside the transfer directory
@@ -26,13 +26,13 @@
       - -a
       - -T
       - "{{ bundle_root }}/artifacts/rpm-repo/modules"
-      - "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules"
-    creates: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules/repodata/repomd.xml"
+      - "/opt/netbox-offline-repo/{{ platform.version }}/modules"
+    creates: "/opt/netbox-offline-repo/{{ platform.version }}/modules/repodata/repomd.xml"
   when: packages.source == 'bundle'
 
 - name: Verify persistent repository metadata
   ansible.builtin.stat:
-    path: "/opt/netbox-offline-repo/{{ deployment.bundle_version }}/{{ item }}/repodata/repomd.xml"
+    path: "/opt/netbox-offline-repo/{{ platform.version }}/{{ item }}/repodata/repomd.xml"
   loop:
     - base
     - modules
@@ -43,8 +43,8 @@
 - name: Configure offline base RPM repository
   ansible.builtin.yum_repository:
     name: netbox-offline-base
-    description: NetBox RHEL 9.6 offline base closure
-    baseurl: "file:///opt/netbox-offline-repo/{{ deployment.bundle_version }}/base"
+    description: NetBox RHEL 9.x offline base closure
+    baseurl: "file:///opt/netbox-offline-repo/{{ platform.version }}/base"
     enabled: "{{ packages.source == 'bundle' }}"
     gpgcheck: true
     repo_gpgcheck: false
@@ -53,8 +53,8 @@
 - name: Configure offline modular RPM repository
   ansible.builtin.yum_repository:
     name: netbox-offline-modules
-    description: NetBox RHEL 9.6 offline modular content
-    baseurl: "file:///opt/netbox-offline-repo/{{ deployment.bundle_version }}/modules"
+    description: NetBox RHEL 9.x offline modular content
+    baseurl: "file:///opt/netbox-offline-repo/{{ platform.version }}/modules"
     enabled: "{{ packages.source == 'bundle' }}"
     gpgcheck: true
     repo_gpgcheck: false

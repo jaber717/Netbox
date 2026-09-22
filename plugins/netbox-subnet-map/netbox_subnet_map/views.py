@@ -1,9 +1,10 @@
 import logging
+import hashlib
 
 import netaddr
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import router, transaction
+from django.db import connections, router, transaction
 from django.shortcuts import get_object_or_404, render
 
 from core.signals import clear_events
@@ -16,6 +17,7 @@ from utilities.permissions import get_permission_for_model
 from utilities.views import ViewTab, register_model_view
 
 from .services.assembler import SubnetMapAssembler
+from .services.discovery import FreeSpaceFinder, filter_subnet_map
 
 
 def _plugin_options():
@@ -31,14 +33,22 @@ class SubnetMapView(LoginRequiredMixin, generic.ObjectView):
     http_method_names = ["get", "head", "options"]
 
     def get_extra_context(self, request, instance):
-        return {"subnet_map": SubnetMapAssembler(
+        subnet_map = SubnetMapAssembler(
             instance,
             request.user,
             _plugin_options(),
             can_allocate=request.user.has_perm("ipam.add_ipaddress"),
+            can_change=request.user.has_perm("ipam.change_ipaddress"),
         ).assemble(
             page=request.GET.get("page", 1)
-        )}
+        )
+        filter_subnet_map(subnet_map, request.GET)
+        finder = FreeSpaceFinder(instance, request.user, limit=_plugin_options().get("free_range_limit", 32))
+        return {
+            "subnet_map": subnet_map,
+            "free_space": finder.summary(request.GET.get("child_prefix_length")),
+            "conflict_simulation": finder.conflicts(request.GET.get("simulate")),
+        }
 
 
 @register_model_view(Prefix, name="subnet_map_allocate", path="subnet-map/allocate")
@@ -120,7 +130,21 @@ class SubnetMapAllocateView(LoginRequiredMixin, generic.ObjectEditView):
         if form.is_valid():
             obj._changelog_message = form.cleaned_data.pop("changelog_message", "")
             try:
-                with transaction.atomic(using=router.db_for_write(IPAddress)):
+                alias = router.db_for_write(IPAddress)
+                with transaction.atomic(using=alias):
+                    # Serialize allocations for this exact VRF/host, then re-read
+                    # authoritative occupancy inside the transaction.
+                    digest = hashlib.blake2b(
+                        f"netbox-subnet-map:{prefix.vrf_id}:{host}".encode(), digest_size=8
+                    ).digest()
+                    lock_id = int.from_bytes(digest, "big", signed=True)
+                    if connections[alias].vendor != "postgresql":
+                        raise RuntimeError("Subnet Map allocation requires PostgreSQL transaction locking")
+                    with connections[alias].cursor() as cursor:
+                        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+                    prefix, host, _record, error = self._candidate(request, kwargs["pk"], request.POST)
+                    if error:
+                        return self._unavailable(request, error)
                     obj = form.save()
                     # Same post-save object-permission pattern as NetBox ObjectEditView.
                     if not self.queryset.filter(pk=obj.pk).exists():

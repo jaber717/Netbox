@@ -97,7 +97,7 @@ class SubnetMapAssembler:
         }[record.allocation_state]
 
     @staticmethod
-    def _contextual_actions(record, can_allocate=False):
+    def _contextual_actions(record, can_allocate=False, editable_ids=frozenset()):
         """Read-only action descriptors, never write authorization.
 
         M3 must re-evaluate permissions, occupancy and native validation at save.
@@ -105,9 +105,15 @@ class SubnetMapAssembler:
         """
         actions = []
         for ip in record.ip_objects:
+            can_change = ip["id"] in editable_ids
+            edit = {"kind": "edit", "label": "Edit", "object_id": ip["id"],
+                    "object_address": ip["address"], "enabled": can_change}
+            if can_change:
+                edit["url"] = reverse("ipam:ipaddress_edit", kwargs={"pk": ip["id"]})
+            else:
+                edit["reason"] = "Requires permission to change IP addresses"
             actions.extend([
-                {"kind": "edit", "label": "Edit", "object_id": ip["id"],
-                 "object_address": ip["address"], "enabled": False, "reason": "Available in M4"},
+                edit,
                 {"kind": "open_ip", "label": "Open IP Object", "object_id": ip["id"],
                  "object_address": ip["address"], "enabled": True, "url": ip["url"]},
             ])
@@ -137,7 +143,7 @@ class SubnetMapAssembler:
         actions.append({"kind": "allocate", "label": "Allocate IP", "enabled": False, "reason": reason})
         return actions
 
-    def __init__(self, prefix, user, options=None, *, can_allocate=False):
+    def __init__(self, prefix, user, options=None, *, can_allocate=False, can_change=False):
         self.prefix = prefix
         self.user = user
         options = options or {}
@@ -145,6 +151,7 @@ class SubnetMapAssembler:
         self.page_size = _bounded(options.get("hosts_per_page"), 128, 1000)
         self.related_limit = _bounded(options.get("related_object_limit"), 2000, 10000)
         self.can_allocate = can_allocate
+        self.can_change = can_change
 
     def _visible(self, model, ids):
         ids = {pk for pk in ids if pk is not None}
@@ -179,7 +186,7 @@ class SubnetMapAssembler:
         for ip in ips:
             data = {"type": "Not assigned", "label": "Not assigned", "url": None,
                     "parent": "—", "parent_url": None, "interface": "—", "function": "—",
-                    "primary_mac": "Not recorded", "other_macs": [], "gateway": False}
+                    "site": "—", "primary_mac": "Not recorded", "other_macs": [], "gateway": False}
             if ip.assigned_object_id is None:
                 result[ip.pk] = data
                 continue
@@ -196,6 +203,11 @@ class SubnetMapAssembler:
                     data.update(interface=str(obj), parent=str(parent) if parent else "Not visible",
                                 parent_url=parent.get_absolute_url() if parent else None,
                                 function=self._label(roles, parent.role_id) if parent else "—")
+                    if parent:
+                        site = getattr(parent, "site", None)
+                        if site is None and getattr(parent, "cluster", None):
+                            site = getattr(parent.cluster, "site", None)
+                        data["site"] = str(site) if site else "—"
                     primary = mac_by_id.get(obj.primary_mac_address_id)
                     data["primary_mac"] = str(primary.mac_address) if primary else ("Not visible" if obj.primary_mac_address_id else "Not recorded")
                     data["other_macs"] = [str(mac.mac_address) for mac in mac_by_interface[(ip.assigned_object_type_id, obj.pk)] if mac.pk != obj.primary_mac_address_id]
@@ -219,6 +231,9 @@ class SubnetMapAssembler:
         visible_ips = all_ips.restrict(self.user, "view")
         visible_ranges = all_ranges.restrict(self.user, "view")
         visible_children = all_children.restrict(self.user, "view")
+        editable_ids = set(
+            IPAddress.objects.filter(pk__in=visible_ips.values("pk")).restrict(self.user, "change").values_list("pk", flat=True)
+        ) if self.can_change else set()
         visibility_complete = all(not qs.exclude(pk__in=allowed.values("pk")).exists() for qs, allowed in (
             (all_ips, visible_ips), (all_ranges, visible_ranges), (all_children, visible_children)))
         ip_count = visible_ips.count()
@@ -334,7 +349,7 @@ class SubnetMapAssembler:
                 else:
                     states.append("Not evaluated" if not availability_known else "Outside native available space")
             record.accessible_label = "; ".join([host, *record.netbox_statuses, *states, f"{len(record.ip_objects)} visible IP objects"])
-            record.contextual_actions = self._contextual_actions(record, self.can_allocate)
+            record.contextual_actions = self._contextual_actions(record, self.can_allocate, editable_ids)
             records.append(vars(record))  # Shallow: shared normalized metadata is never copied per host.
         notices = []
         if not complete:

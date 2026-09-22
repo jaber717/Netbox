@@ -31,6 +31,8 @@ def _scalar(text: str) -> Any:
         return lowered == "true"
     if lowered in {"null", "~"}:
         return None
+    if value == "[]":
+        return []
     if re.fullmatch(r"-?[0-9]+", value):
         return int(value)
     return value
@@ -98,17 +100,16 @@ def require(config: dict[str, Any], dotted: str, expected_type: type | tuple[typ
 
 def validate(config: dict[str, Any]) -> None:
     required_strings = (
+        "platform.version",
         "deployment.environment",
-        "deployment.bundle_version",
+        "deployment.installation_mode",
         "server.hostname",
         "server.fqdn",
+        "server.primary_ip",
         "server.timezone",
-        "expected_network.interface",
-        "expected_network.ip_address",
-        "expected_network.cidr",
-        "expected_network.gateway",
         "packages.source",
         "netbox.version",
+        "netbox.source_sha256",
         "netbox.admin_username",
         "postgresql.version",
         "postgresql.database",
@@ -129,21 +130,29 @@ def validate(config: dict[str, Any]) -> None:
         raise ConfigError("this bundle supports exactly NetBox 4.6.9")
     if str(require(config, "postgresql.version")) != "16":
         raise ConfigError("this bundle supports exactly PostgreSQL 16")
-    if require(config, "packages.source") not in {"bundle", "satellite"}:
-        raise ConfigError("packages.source must be bundle or satellite")
-    if require(config, "tls.mode") not in {"self_signed_dev", "supplied"}:
-        raise ConfigError("tls.mode must be self_signed_dev or supplied")
+    if require(config, "packages.source") not in {"bundle", "connected"}:
+        raise ConfigError("packages.source must be connected or bundle")
+    if require(config, "deployment.installation_mode") not in {"connected", "offline"}:
+        raise ConfigError("deployment.installation_mode must be connected or offline")
+    if require(config, "tls.mode") not in {"self_signed", "supplied"}:
+        raise ConfigError("tls.mode must be self_signed or supplied")
+    if not re.fullmatch(r"[0-9a-f]{64}", require(config, "netbox.source_sha256")):
+        raise ConfigError("netbox.source_sha256 must be a lowercase SHA-256 digest")
+    ipaddress.ip_address(require(config, "server.primary_ip"))
 
-    address = ipaddress.ip_address(require(config, "expected_network.ip_address"))
-    interface = ipaddress.ip_interface(require(config, "expected_network.cidr"))
-    if address != interface.ip:
-        raise ConfigError("expected_network.ip_address must equal the host in expected_network.cidr")
-    ipaddress.ip_address(require(config, "expected_network.gateway"))
-
-    for dotted in ("expected_network.dns", "expected_network.ntp", "netbox.allowed_hosts", "netbox.csrf_trusted_origins"):
+    for dotted in ("netbox.allowed_hosts", "netbox.csrf_trusted_origins"):
         values = require(config, dotted, list)
-        if dotted in {"expected_network.dns", "netbox.allowed_hosts"} and not values:
+        if dotted == "netbox.allowed_hosts" and not values:
             raise ConfigError(f"{dotted} must not be empty")
+
+    for dotted in (
+        "features.generic_foundation", "features.environment_validators",
+        "features.ipam_audit_report", "features.ipam_allocation_request",
+        "features.subnet_map", "features.cmdb",
+    ):
+        require(config, dotted, bool)
+    if require(config, "features.cmdb"):
+        raise ConfigError("CMDB is not production-ready in this release and cannot be enabled")
 
 
 def load_and_validate(path: str | Path) -> dict[str, Any]:

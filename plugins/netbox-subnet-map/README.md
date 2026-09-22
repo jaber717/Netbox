@@ -9,6 +9,12 @@ A native NetBox plugin that provides an interactive per-prefix address map and g
 - Interface, VMInterface, FHRP assignment visibility and interface MAC visibility.
 - Permission-aware fail-closed availability, NetBox Available, and Operationally Unclaimed metrics.
 - Native Quick Add allocation with NetBox validation and changelog attribution.
+- Permission-aware search and filters for address, CIDR, VRF, tenant, status,
+  device, interface, VM interface, DNS name, VLAN and site.
+- Native NetBox IPAddress edit links from the Inspector.
+- VRF-scoped next-IP, free-range and requested-size child-prefix discovery.
+- Read-only conflict simulation for IPs and CIDRs.
+- PostgreSQL advisory transaction locking and authoritative allocation recheck.
 - No discovery, scanning, or second source of truth.
 
 ## Screenshots
@@ -49,7 +55,7 @@ See [architecture](docs/architecture.md).
 
 - Tested only on NetBox 4.6.9.
 - Allocation is limited to complete visible IPv4 grids within the configured ceiling.
-- Editing existing IP objects, search/filtering, network discovery, and MAC creation are not implemented.
+- Active network scanning/discovery and MAC creation are intentionally not implemented.
 
 ## Development
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0-rc1 — connected production candidate
+
+- Make connected RHEL 9.x x86_64 the primary install path.
+- Vendor and automatically install Subnet Map from the approved v0.2.0 base.
+- Add Subnet Map 0.3.0 search, native edit, free-space/conflict and serialized allocation workflows.
+- Add `install.sh`, `verify.sh`, managed release state and target-pinned upgrade.
+- Separate generic foundation from historical lab examples.
+- Classify and preserve CMDB as partial without enabling it in production.
+- Add platform CI and Git-history hygiene scanning.
+
 ## 1.0.0 final release audit
 
 - Split the root-only private recovery checkpoint from the sanitized OPSWAT

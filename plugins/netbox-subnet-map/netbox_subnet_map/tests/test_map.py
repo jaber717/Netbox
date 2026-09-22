@@ -75,7 +75,20 @@ class MapTests(TestCase):
             if action["kind"] == "edit":
                 self.assertFalse(action["enabled"])
                 self.assertNotIn("url", action)
-                self.assertEqual(action["reason"], "Available in M4")
+                self.assertEqual(action["reason"], "Requires permission to change IP addresses")
+
+    def test_edit_action_uses_native_netbox_form_and_permission_gate(self):
+        obj = self.ip("192.0.2.10/32")
+        readonly = self.record(self.assemble())
+        edit = next(action for action in readonly["contextual_actions"] if action["kind"] == "edit")
+        self.assertFalse(edit["enabled"])
+        self.assertNotIn("url", edit)
+        writable = self.record(SubnetMapAssembler(
+            self.prefix, self.user, can_change=True
+        ).assemble())
+        edit = next(action for action in writable["contextual_actions"] if action["kind"] == "edit")
+        self.assertTrue(edit["enabled"])
+        self.assertEqual(edit["url"], reverse("ipam:ipaddress_edit", kwargs={"pk": obj.pk}))
 
     def test_range_and_populated_range(self):
         for populated in (False, True):
